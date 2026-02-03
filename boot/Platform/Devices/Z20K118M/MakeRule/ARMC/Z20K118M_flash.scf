@@ -1,0 +1,98 @@
+; *************************************************************
+; *** Scatter-Loading Description File ***
+; *************************************************************
+
+#define pflash_start 0x00000000
+#define pflash_size  0x00040000   /* 256KB */
+
+#define dflash_start 0x01000000
+#define dflash_size  0x00020000   /* 128KB */
+
+#define ram0_start   0x1fffc000
+#define ram0_size    0x00004000   /* 16KB */
+#define ram0_end     ram0_start + ram0_size
+
+#define ram1_start   0x20000000
+#define ram1_size    0x00004000   /* 16KB */
+#define ram1_end     ram1_start + ram1_size
+
+; ────────────────────────────────────────────────
+; 新增的分区起始地址（相对 pflash_start 的偏移）
+#define preboot_start   pflash_start                 ; 0x00000000
+#define preboot_size    0x9000                       ; 36KB = 0x9000
+
+#define bootA_start     preboot_start + preboot_size ; 0x00009000
+#define bootA_size      0xC800                       ; 50KB = 0xC800
+
+#define bootB_start     bootA_start + bootA_size     ; 0x00015400
+#define bootB_size      0xC800                       ; 50KB = 0xC800
+
+#define app_start       bootB_start + bootB_size     ; 0x00022000
+#define app_size        pflash_start + pflash_size - app_start  ; 剩余 ≈0x1DE000 (233KB)
+
+; ────────────────────────────────────────────────
+LR_IROM1 pflash_start pflash_size
+{
+    ; ---------------- preboot ----------------
+    LR_preboot preboot_start preboot_size
+    {
+        ER_preboot preboot_start preboot_size
+        {
+            *preboot*.o (+RO)           ; preboot 专属的目标文件（需在工程中单独分组）
+            *(InRoot$$Sections)         ; 如果 preboot 需要 vector table 等
+            .ANY1 (+RO)                 ; 或者把 preboot 的 RO 明确指定
+        }
+    }
+
+    ; ---------------- bootA ----------------
+    LR_bootA bootA_start bootA_size
+    {
+        ER_bootA bootA_start bootA_size
+        {
+            *boot*.o (+RO)              ; boot 相关的 .o 文件（需分组）
+            .ANY2 (+RO)                 ; 根据需要调整
+        }
+    }
+
+    ; ---------------- bootB ----------------
+    LR_bootB bootB_start bootB_size
+    {
+        ER_bootB bootB_start bootB_size
+        {
+            *boot*.o (+RO)              ; 同 bootA，但通常只 link 一个 bank
+        }
+    }
+
+    ; ---------------- app ----------------
+    LR_app app_start app_size
+    {
+        ER_app app_start app_size
+        {
+            *.o (.intvec, +First)       ; 应用的中断向量表放最前面
+            *(InRoot$$Sections)
+            .ANY (+RO)                  ; 其余所有 RO（code + const）放这里
+        }
+
+        ; RAM 执行代码（如果有）
+        RAM_START ram0_start ram0_size
+        {
+            .ANY (.code_ram)
+        }
+
+        ; RW / ZI 数据区
+        RW_IRAM1 ram1_start ram1_size
+        {
+            .ANY (+RW +ZI)
+        }
+
+        ; 栈（从 ram1 顶部向下生长）
+        ARM_LIB_STACK ram1_end EMPTY -0x400
+        {
+        }
+
+        ; 堆（栈下方）
+        ARM_LIB_HEAP ImageBase(ARM_LIB_STACK) EMPTY -0x200
+        {
+        }
+    }
+}

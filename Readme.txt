@@ -1,0 +1,1 @@
+这是lx07项目的升级软件，分为preboot、boot、app

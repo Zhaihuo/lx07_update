@@ -1,0 +1,45 @@
+/*********************************************************************
+*            (c) 1995 - 2021 SEGGER Microcontroller GmbH             *
+*                        The Embedded Experts                        *
+*                           www.segger.com                           *
+**********************************************************************
+
+-------------------------- END-OF-HEADER -----------------------------
+*/
+
+/*********************************************************************
+*
+*  InitTarget
+*/
+void InitTarget(void) {
+  JLINK_SYS_Report("******************************************************");
+  JLINK_SYS_Report("J-Link script: Z20K11xM M0+ core J-Link script");
+  JLINK_SYS_Report("******************************************************");
+  CPU = CORTEX_M0;      // Pre-select that we have a Cortex-M0+ connected
+
+  // Setting AP and DP
+  JLINK_CORESIGHT_WriteDP(2, 0x01000000);
+  JLINK_CORESIGHT_WriteAP(3, 0x80000000);
+  JLINK_CORESIGHT_WriteAP(2, 0x00000001);
+  
+  JLINK_CORESIGHT_ReadAP(3);
+  JLINK_CORESIGHT_ReadAP(2);
+  
+  JLINK_CORESIGHT_WriteDP(2, 0x00000000);
+  SYS_Sleep(1000);
+}
+
+void SetupTarget(void)
+{
+  int addr;
+
+  JLINK_SYS_Report("Init SRAM Begin");
+  addr = 0x1fffc000;
+
+  do {
+    JLINK_MEM_WriteU32(addr, 0x0);
+    addr += 4;
+  } while(addr < 0x20004000);
+  
+  JLINK_SYS_Report("Init SRAM End");
+}
