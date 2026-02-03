@@ -1,0 +1,8 @@
+.vscode/*
+!.vscode/header.code-snippets
+!.vscode/source.code-snippets
+
+/Lx07_Project/KeilProject/*
+!/Lx07_Project/KeilProject/*.uvoptx
+!/Lx07_Project/KeilProject/*.uvprojx
+!/Lx07_Project/KeilProject/*.JLinkScript
