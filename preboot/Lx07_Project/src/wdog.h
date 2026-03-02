@@ -17,7 +17,6 @@
 #include "Z20k11xM_wdog.h"
 #include "Z20K11xM_sysctrl.h"
 #include "Z20K11xM_drv.h"
-#include "serial.h"
 
 extern void Wdog_Init(void);
 

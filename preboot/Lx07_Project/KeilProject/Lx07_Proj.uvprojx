@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>DEV_Z20K118M</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\StdDriver\Inc;..\..\Platform\Core;..\..\Platform;..\..\Platform\Devices;..\..\Platform\Devices\Z20K118M\Inc;..\Sch\inc;..\SysTick\inc;..\src</IncludePath>
+              <IncludePath>..\..\StdDriver\Inc;..\..\Platform\Core;..\..\Platform;..\..\Platform\Devices;..\..\Platform\Devices\Z20K118M\Inc;..\Sch\inc;..\src</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -460,109 +460,9 @@
               <FilePath>..\src\main.c</FilePath>
             </File>
             <File>
-              <FileName>serial.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\serial.c</FilePath>
-            </File>
-            <File>
               <FileName>wdog.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\wdog.c</FilePath>
-            </File>
-            <File>
-              <FileName>i2c.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\i2c.c</FilePath>
-            </File>
-            <File>
-              <FileName>uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\uart.c</FilePath>
-            </File>
-            <File>
-              <FileName>can.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\src\can.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>Sch</GroupName>
-          <Files>
-            <File>
-              <FileName>Scheduler.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Scheduler.c</FilePath>
-            </File>
-            <File>
-              <FileName>Scheduler_Cfg.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Scheduler_Cfg.c</FilePath>
-            </File>
-            <File>
-              <FileName>Lx07.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Lx07.c</FilePath>
-            </File>
-            <File>
-              <FileName>Uart2.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Uart2.c</FilePath>
-            </File>
-            <File>
-              <FileName>focaltech_core.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\focaltech_core.c</FilePath>
-            </File>
-            <File>
-              <FileName>Debounce.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Debounce.c</FilePath>
-            </File>
-            <File>
-              <FileName>Crc32.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Crc32.c</FilePath>
-            </File>
-            <File>
-              <FileName>Eeprom.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Eeprom.c</FilePath>
-            </File>
-            <File>
-              <FileName>ProductLine.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\ProductLine.c</FilePath>
-            </File>
-            <File>
-              <FileName>Adc.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Adc.c</FilePath>
-            </File>
-            <File>
-              <FileName>BackL.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\BackL.c</FilePath>
-            </File>
-            <File>
-              <FileName>Touch.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\Touch.c</FilePath>
-            </File>
-            <File>
-              <FileName>VedioDisp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Sch\src\VedioDisp.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>SysTick</GroupName>
-          <Files>
-            <File>
-              <FileName>SysTick.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\SysTick\src\SysTick.c</FilePath>
             </File>
           </Files>
         </Group>

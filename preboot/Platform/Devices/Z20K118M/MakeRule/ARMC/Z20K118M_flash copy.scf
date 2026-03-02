@@ -1,39 +1,78 @@
-#! armclang --target=arm-arm-none-eabi -mcpu=cortex-m0plus -xc -E
 ; *************************************************************
-; *** Scatter-Loading Description File                      ***
+; Scatter-Loading Description File (修正版)
 ; *************************************************************
 
-#define pflash_start               0x00000000
-#define pflash_size                0x00040000    /* 256KB */
+#define PFLASH_START    0x00000000
+#define PFLASH_SIZE     0x00040000      ; 256 KB
 
-#define dflash_start               0x01000000
-#define dflash_size                0x00020000    /* 128KB */
+#define PREBOOT_START   PFLASH_START
+#define PREBOOT_SIZE    0x00009000      ; 36 KB
 
+#define BOOTA_START     (PREBOOT_START + PREBOOT_SIZE)   ; 0x00009000
+#define BOOTA_SIZE      0x0000C800      ; 50 KB
 
-#define ram0_start                 0x1fffc000
-#define ram0_size                  0x00004000    /* 16KB */
-#define ram0_end                   ram0_start + ram0_size
+#define BOOTB_START     (BOOTA_START + BOOTA_SIZE)       ; 0x00015800
+#define BOOTB_SIZE      0x0000C800      ; 50 KB
 
-#define ram1_start                 0x20000000
-#define ram1_size                  0x00004000    /* 16KB */
-#define ram1_end                   ram1_start + ram1_size
+#define APP_START       (BOOTB_START + BOOTB_SIZE)       ; 0x00022000
+#define APP_SIZE        (PFLASH_START + PFLASH_SIZE - APP_START)  ; 120 KB = 0x1E000
 
-LR_IROM1 pflash_start pflash_size  {    ; load region size_region
-  ER_IROM1 pflash_start pflash_size  {  ; load address = execution address
-   *.o (.intvec, +First)
-   *(InRoot$$Sections)
-   .ANY (+RO)
+#define RAM0_START      0x1FFFC000
+#define RAM0_SIZE       0x00004000      ; 16 KB
+
+#define RAM1_START      0x20000000
+#define RAM1_SIZE       0x00004000      ; 16 KB
+
+LR_IROM1 PFLASH_START PFLASH_SIZE
+{
+  ; ───────────── preboot ─────────────
+  ER_preboot PREBOOT_START PREBOOT_SIZE
+  {
+      *preboot*.o (+RO +RW)           ; 建议明确分组，不要依赖 .ANY
+      *(InRoot$$Sections)
+      .ANY1 (+RO)                     ; 实在要兜底才用 .ANY1
   }
-  
-  RAM_START ram0_start ram0_size  {  ; code execution in ram
-   .ANY (.code_ram)
-  }
-  
-  RW_IRAM1 ram1_start ram1_size  {  ; RW data
-   .ANY (+RW +ZI)
-  }  
 
-  ARM_LIB_STACK ram1_end EMPTY -0x400     {}; Stack region growing down
-  ARM_LIB_HEAP	ImageBase(ARM_LIB_STACK) EMPTY -0x200	 {} ; heap region
+  ; ───────────── bootA ─────────────
+  ER_bootA BOOTA_START BOOTA_SIZE
+  {
+      *bootA*.o (+RO)                 ; 建议用更精确的通配符或文件组
+      .ANY2 (+RO)
+  }
+
+  ; ───────────── bootB ─────────────
+  ER_bootB BOOTB_START BOOTB_SIZE
+  {
+      *bootB*.o (+RO)                 ; 同上，建议分开命名
+      .ANY3 (+RO)
+  }
+
+  ; ───────────── application ─────────────
+  ER_app APP_START APP_SIZE
+  {
+      *.o (RESET, +First)             ; 中断向量表（通常叫 RESET 或 .intvec）
+      *(InRoot$$Sections)
+      * (+RO)                         ; 所有剩余只读（code + const data）
+  }
+
+  ; ───────────── RAM sections ─────────────
+  RW_RAM0 RAM0_START RAM0_SIZE
+  {
+      * (+RW +ZI)                     ; 通常把所有 RW/ZI 放在一起，除非你明确要分开
+  }
+
+  ; 如果你真的要用两个 RAM 块，可以分开写，但多数情况只用一个就够
+  ; RW_RAM1 RAM1_START RAM1_SIZE
+  ; {
+  ;     .ANY (+RW +ZI -RW_RAM0)
+  ; }
+
+  ; 栈（从高地址向下生长）
+  ARM_LIB_STACKHEAP RAM1_START RAM1_SIZE
+  {
+      ; 自动把栈放在高地址，堆放在低地址
+      ; 也可以手动指定：
+      ; Stack    +0x00000000  EMPTY  -0x1000   ; 4KB 栈
+      ; Heap     +0x00000000  EMPTY  +0x2000   ; 8KB 堆（示例）
+  }
 }
-

@@ -34,6 +34,7 @@ void SetupTarget(void)
   int addr;
 
   JLINK_SYS_Report("Init SRAM Begin");
+  /* For Z20K116M, please change to “addr=0x20000000” */
   addr = 0x1fffc000;
 
   do {

@@ -1,249 +1,103 @@
 /**************************************************************************************************/
 /**
  * @file      : main.c
- * @brief     :
- * @version   : V1.8.0
- * @date      : December-2023
- * @author    :
- *
- * @note      : This example contains sample code for customer evaluation purpose only. It is not
- * part of the production code deliverables. The example code is only tested under defined
- * environment with related context of the whole example project. Therefore, it is not guaranteed
- * that the example always works under user environment due to the diversity of hardware and
- * software environment. Do not use pieces copy of the example code without prior and separate
- * verification and validation in user environment.
- *
- * @copyright : Copyright (c) 2020-2023 Zhixin Semiconductor Ltd. All rights reserved.
+ * @brief     : PreBoot - 最基础启动代码 + 跳转到 Bootloader
+ * @version   : V1.0 (for PreBoot)
+ * @date      : 2025-2026
+ * @note      : 只做极简初始化 + 读取标志 + 跳转，不初始化复杂外设
  **************************************************************************************************/
 
 #include "Z20K11xM_drv.h"
 #include "Z20K11xM_clock.h"
 #include "Z20K11xM_sysctrl.h"
 #include "Z20K11xM_wdog.h"
-#include "Z20K11xM_gpio.h"
-#include "Z20K11xM_uart.h"
 
-#include "serial.h"
-#include "i2c.h"
-#include "uart.h"
-#include "wdog.h"
-#include "SysTick.h"
-#include "Scheduler.h"
-#include "can.h"
-#include "Uart2.h"
-#include "Config.h"
-#include "Debounce.h"
-#include "touch.h"
+// ──────────────────────────────────────────────
+//  PreBoot 配置区（根据你的实际分区调整这些宏）
+// ──────────────────────────────────────────────
 
-#define WDOG_EN 0
+// Metadata 存放地址（建议放在 Flash 最后 1~4KB，避免被 Boot/App 覆盖）
+#define METADATA_BASE_ADDR      0x0003F000U     // 示例：256KB Flash 最后 4KB
 
-__STATIC_INLINE void SysTick_Init(void)
+// metadata 内偏移（可自定义结构体）
+#define METADATA_MAGIC_OFFSET   0x00            // 魔数（可选校验）
+#define ACTIVE_BOOT_OFFSET      0x04            // 当前活动 Boot：0 = Boot_A, 1 = Boot_B
+
+// Bootloader 起始地址（与 scatter 和分区规划一致）
+#define BOOT_A_START_ADDR       0x0000C000U     // PreBoot 48KB 后
+#define BOOT_B_START_ADDR       0x0001C000U     // Boot_A 64KB 后
+
+// 魔数（可选，用于校验 metadata 是否有效）
+#define METADATA_MAGIC          0x5A5AA5A5U
+
+/* delay function (仅用于测试，正式可删除) */
+static void delay(volatile uint32_t cycles)
 {
-    SysTick->LOAD = 0x00FFFFFEu; /* set reload register */
-    SysTick->VAL  = 0UL;         /* Load the SysTick Counter Value */
-    SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
-                    SysTick_CTRL_ENABLE_Msk; /* Enable SysTick IRQ and SysTick Timer */
-}
-
-/* delay function*/
-void delay(volatile int cycles)
-{
-    /* Delay function - do nothing for a number of cycles */
     while (cycles--);
 }
 
-void PortCInt(PORT_ID_t portId, PORT_GPIONO_t gpioNo);
-
-void GPIOIntInit(void)
+static void PreBoot_Init(void)
 {
-    PORT_InstallCallBackFunc(PortCInt);
-
-    // /* v1.0.1 */
-    /* Clear interrupt flag*/
-    // PORT_ClearPinInt(PORT_C, GPIO_1);
-    // /* set pin as GPIO*/
-    // PORT_PinmuxConfig(PORT_C, GPIO_1, PTC1_GPIO);
-    // /* an initial voltage */
-    // PORT_PullConfig(PORT_C, GPIO_1, PORT_PULL_DOWN);
-    // /* input direction for PTC1 */
-    // GPIO_SetPinDir(PORT_C, GPIO_1, GPIO_INPUT);
-    // /* port interrupt config*/
-    // PORT_PinIntConfig(PORT_C, GPIO_1, PORT_ISF_INT_RISING_EDGE);
-
-    /* v1.0.3 */
-    /* Clear interrupt flag*/ // sw1
-    PORT_ClearPinInt(PORT_D, GPIO_2);
-    /* set pin as GPIO*/
-    PORT_PinmuxConfig(PORT_D, GPIO_2, PTD2_GPIO);
-    /* an initial voltage */
-    PORT_PullConfig(PORT_D, GPIO_2, PORT_PULL_DOWN);
-    /* input direction for PTC1 */
-    GPIO_SetPinDir(PORT_D, GPIO_2, GPIO_INPUT);
-    /* port interrupt config*/
-    PORT_PinIntConfig(PORT_D, GPIO_2, PORT_ISF_INT_RISING_EDGE);
-
-    /* Clear interrupt flag*/ // sw2
-    PORT_ClearPinInt(PORT_C, GPIO_2);
-    /* set pin as GPIO*/
-    PORT_PinmuxConfig(PORT_C, GPIO_2, PTC2_GPIO);
-    /* an initial voltage */
-    PORT_PullConfig(PORT_C, GPIO_2, PORT_PULL_DOWN);
-    /* input direction for PTC2 */
-    GPIO_SetPinDir(PORT_C, GPIO_2, GPIO_INPUT);
-    /* port interrupt config*/
-    PORT_PinIntConfig(PORT_C, GPIO_2, PORT_ISF_INT_RISING_EDGE);
-
-    // /* Clear interrupt flag*///sw3
-    PORT_ClearPinInt(PORT_C, GPIO_3);
-    /* set pin as GPIO*/
-    PORT_PinmuxConfig(PORT_C, GPIO_3, PTC3_GPIO);
-    /* an initial voltage */
-    PORT_PullConfig(PORT_C, GPIO_3, PORT_PULL_DOWN);
-    /* input direction for PTC3 */
-    GPIO_SetPinDir(PORT_C, GPIO_3, GPIO_INPUT);
-    /* port interrupt config*/
-    PORT_PinIntConfig(PORT_C, GPIO_3, PORT_ISF_INT_RISING_EDGE);
-
-    /* v1.0.3 TP */
-    /* Clear interrupt flag*/
-    PORT_ClearPinInt(PORT_C, GPIO_8);
-    /* set pin as GPIO*/
-    PORT_PinmuxConfig(PORT_C, GPIO_8, PTC8_GPIO);
-    /* an initial voltage */
-    PORT_PullConfig(PORT_C, GPIO_8, PORT_PULL_UP);
-    /* input direction for PTC8 */
-    GPIO_SetPinDir(PORT_C, GPIO_8, GPIO_INPUT);
-/* port interrupt config*/
-#if 0
-    PORT_PinIntConfig(PORT_C, GPIO_8, PORT_ISF_INT_RISING_EDGE);
-#else // Lx07
-    PORT_PinIntConfig(PORT_C, GPIO_8, PORT_ISF_INT_FALLING_EDGE);
-#endif
-
-    NVIC_SetPriority(PORTABC_IRQn, 1u);
-    /* enable NVIC IRQ*/
-    NVIC_EnableIRQ(PORTABC_IRQn);
-    NVIC_EnableIRQ(PORTDE_IRQn);
-}
-
-void PortCInt(PORT_ID_t portId, PORT_GPIONO_t gpioNo)
-{
-    if ((PORT_C == portId) && (GPIO_8 == gpioNo))
-    {
-#ifdef TOUCH_NEED_TPCOUNT
-        Debounce_vInTpIRQ(&Debounce_StTpTrigger);
-#else
-        // Debounce_vInIRQ(&Debounce_StTpTrigger);
-#endif
-        Touch_boMisTpIntFlg = true;
-
-        // fts_gpio_interrupt_handler();
-    }
-    else if ((PORT_D == portId) && (GPIO_2 == gpioNo)) // Sw1
-    {
-        Debounce_vInIRQ(&Debounce_StSw1);
-    }
-    else if ((PORT_C == portId) && (GPIO_2 == gpioNo)) // Sw2
-    {
-        Debounce_vInIRQ(&Debounce_StSw2);
-    }
-    else if ((PORT_C == portId) && (GPIO_3 == gpioNo)) // Sw3
-    {
-        Debounce_vInIRQ(&Debounce_StSw3);
-    }
-}
-
-void System_Init(void)
-{
-    /* Disable wdog */
+    // 1. 关闭或喂狗（防止 PreBoot 执行期间复位）
     SYSCTRL_EnableModule(SYSCTRL_WDOG);
-    WDOG_Disable();
+    WDOG_Disable();                     // 推荐：直接禁用
+    // 或者：WDOG_Feed();               // 如果必须启用看门狗
 
-    /* Enable OSC40M clock*/
+    // 2. 时钟配置（最简配置，确保后续能跑）
+    //    注意：PreBoot 不建议开太多时钟源，保持简单
     CLK_OSC40MEnable2(CLK_OSC_FREQ_MODE_HIGH, ENABLE, CLK_OSC_XTAL);
-    /* Select OSC40M as system clock*/
-    CLK_SysClkSrc(CLK_SYS_FIRC64M);         // zx review , CLK_SYS_OSC40M -> CLK_SYS_FIRC64M
-    CLK_SetClkDivider(CLK_CORE, CLK_DIV_1); // zx review
-    CLK_SetClkDivider(CLK_BUS, CLK_DIV_2);  // zx review
-    CLK_SetClkDivider(CLK_SLOW, CLK_DIV_8); // zx review
+    CLK_SysClkSrc(CLK_SYS_FIRC64M);     // 或 CLK_SYS_OSC40M，根据你的需求
+    CLK_SetClkDivider(CLK_CORE, CLK_DIV_1);
+    CLK_SetClkDivider(CLK_BUS,  CLK_DIV_2);
+    CLK_SetClkDivider(CLK_SLOW, CLK_DIV_8);
 }
 
-void Common_Init(void)
+int main(void)
 {
-    CLK_ModuleSrc(CLK_PORTA, CLK_SRC_OSC40M);
-    SYSCTRL_EnableModule(SYSCTRL_PORTA);
+    PreBoot_Init();
 
-    CLK_ModuleSrc(CLK_PORTB, CLK_SRC_OSC40M);
-    SYSCTRL_EnableModule(SYSCTRL_PORTB);
+    // ──────────────────────────────────────────────
+    //  读取 metadata，决定跳转到哪个 Bootloader
+    // ──────────────────────────────────────────────
 
-    CLK_ModuleSrc(CLK_PORTC, CLK_SRC_OSC40M);
-    SYSCTRL_EnableModule(SYSCTRL_PORTC);
+    volatile uint32_t *meta = (volatile uint32_t *)METADATA_BASE_ADDR;
 
-    CLK_ModuleSrc(CLK_PORTD, CLK_SRC_OSC40M);
-    SYSCTRL_EnableModule(SYSCTRL_PORTD);
+    // 可选：校验魔数（防止读到垃圾数据）
+    if (meta[METADATA_MAGIC_OFFSET / 4] != METADATA_MAGIC)
+    {
+        // 魔数不对 → 默认跳转 Boot_A（或进入死循环/安全模式）
+        goto jump_to_boot_a;
+    }
 
-    CLK_ModuleSrc(CLK_PORTE, CLK_SRC_OSC40M);
-    SYSCTRL_EnableModule(SYSCTRL_PORTE);
+    uint32_t active_boot = meta[ACTIVE_BOOT_OFFSET / 4];  // 0 = A, 1 = B, 其他值默认 A
 
-    /* enable GPIO module*/
-    SYSCTRL_EnableModule(SYSCTRL_GPIO);
-}
+    uint32_t jump_addr;
+    if (active_boot == 1)
+    {
+        jump_addr = BOOT_B_START_ADDR;
+    }
+    else
+    {
+jump_to_boot_a:
+        jump_addr = BOOT_A_START_ADDR;
+    }
 
-void Peripheral_Init(void)
-{
-    I2c_Init();
+    // ──────────────────────────────────────────────
+    //  标准 Cortex-M 跳转到另一个 image 的方式
+    // ──────────────────────────────────────────────
 
-    Uart0_Init();
+    // 读取目标 Bootloader 的向量表
+    uint32_t msp           = *(volatile uint32_t *)jump_addr;         // 栈顶指针
+    uint32_t reset_handler = *(volatile uint32_t *)(jump_addr + 4);   // Reset_Handler 地址
 
-    Uart2_vInit();
+    // 设置主栈指针（MSP）
+    __set_MSP(msp);
 
-    SysTickInit();
+    // 清除所有 pending 中断（可选，但推荐）
+    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk | SCB_ICSR_PENDSTCLR_Msk;
 
-    CANConfig_Init();
-}
+    // 跳转执行（直接调用函数指针）
+    ((void (*)(void))reset_handler)();
 
-int main()
-{
-    /* system init */
-    System_Init();
-
-    /* common module init */
-    Common_Init();
-
-#ifdef WDOG_EN
-    // delay(30000);		//test delay , avoid frequent reset of the mcu
-    Wdog_Init();
-#endif
-
-#if 1 // Lx07
-    GPIOIntInit();
-#endif
-
-    // WDOG_Disable();
-
-    // /* pull up deserialuzer power v1.0.1 */
-    // PORT_PinmuxConfig(PORT_A, GPIO_11, PTA11_GPIO);
-    // GPIO_SetPinDir(PORT_A, GPIO_11, GPIO_OUTPUT);
-    // GPIO_SetPinOutput(PORT_A, GPIO_11);
-
-    /* pull up deserialuzer power v1.0.3 */
-    PORT_PinmuxConfig(PORT_A, GPIO_13, PTA13_GPIO);
-    GPIO_SetPinDir(PORT_A, GPIO_13, GPIO_OUTPUT);
-    GPIO_SetPinOutput(PORT_A, GPIO_13);
-
-    PORT_PinmuxConfig(PORT_A, GPIO_12, PTA12_GPIO);
-    GPIO_SetPinDir(PORT_A, GPIO_12, GPIO_OUTPUT);
-    GPIO_SetPinOutput(PORT_A, GPIO_12);
-
-    /* set pin as GPIO*/
-    PORT_PinmuxConfig(PORT_C, GPIO_5, PTC5_GPIO);
-    /* an initial voltage */
-    PORT_PullConfig(PORT_C, GPIO_5, PORT_PULL_DOWN);
-
-    /* input direction for PTC5 */
-    GPIO_SetPinDir(PORT_C, GPIO_5, GPIO_INPUT);
-
-    Peripheral_Init();
-
-    Sch_Main();
+    while (1) {}
 }
