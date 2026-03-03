@@ -204,6 +204,17 @@ void Peripheral_Init(void)
 
 int main()
 {
+    __disable_irq();
+    System_Init();
+
+    uint8_t u8Test = 0;
+
+    while (true)
+    {
+        u8Test++;
+    }
+
+#if 0
     /* system init */
     System_Init();
 
@@ -246,4 +257,5 @@ int main()
     Peripheral_Init();
 
     Sch_Main();
+#endif
 }
