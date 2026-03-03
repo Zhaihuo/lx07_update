@@ -3,8 +3,8 @@
 ; *** Scatter-Loading Description File                      ***
 ; *************************************************************
 
-#define pflash_start               0x00000000
-#define pflash_size                0x00040000    /* 256KB */
+#define pflash_start               0x0002C000
+#define pflash_size                0x00012000    /* 72KB */
 
 #define dflash_start               0x01000000
 #define dflash_size                0x00020000    /* 128KB */

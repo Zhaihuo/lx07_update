@@ -204,16 +204,6 @@ void Peripheral_Init(void)
 
 int main()
 {
-    __disable_irq();
-    System_Init();
-
-    uint8_t u8Test = 0;
-
-    while (true)
-    {
-        u8Test++;
-    }
-
 #if 0
     /* system init */
     System_Init();
@@ -257,5 +247,43 @@ int main()
     Peripheral_Init();
 
     Sch_Main();
+#else
+    __disable_irq();
+    System_Init();
+
+    #define APP_START_ADDR (0x0002C000)
+
+    uint32_t jump_addr = APP_START_ADDR;
+
+    // 只读取 Reset_Handler 地址（不读 MSP）
+    uint32_t reset_handler_addr = *(volatile uint32_t *)(jump_addr + 4);
+
+    // // 安全检查（可选）
+    // if ((reset_handler_addr & 0x01U) == 0 || reset_handler_addr < jump_addr)
+    // {
+    //     // 非法 → 进入升级模式
+    //     Enter_Upgrade_Mode();
+    //     return 0; // 或 while(1)
+    // }
+
+    // 跳转前强制 VTOR = 0
+    SCB->VTOR = 0x00000000UL;
+
+    // 清除 pending 中断
+    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk | SCB_ICSR_PENDSTCLR_Msk;
+
+    // 关中断（可选）
+    __disable_irq();
+
+    // 直接跳转到 App 的 Reset_Handler
+    ((void (*)(void))reset_handler_addr)();
+
+    uint8_t u8Test = 0;
+
+    while (true)
+    {
+        u8Test++;
+    }
+
 #endif
 }
