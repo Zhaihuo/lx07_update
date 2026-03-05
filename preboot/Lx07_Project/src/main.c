@@ -27,7 +27,7 @@
 #define BOOT_B_START_ADDR 0x0001C000u // 0 + 48K（preboot size） + 64K（boot_A size）
 
 /*魔数 用于校验meta数据是否有效*/
-#define METADATA_MAGIC 0xAABBCCDDu
+#define METADATA_MAGIC 0xC5C5C5C5u
 
 static void PreBoot_Init(void)
 {

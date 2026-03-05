@@ -78,48 +78,52 @@ void FlashDrive_Handler(void)
     uint32_t        u32Loop1 = 0;
     static uint32_t u32Loop2 = 0;
 
+    static uint8_t u8Step = 0;
+
     // static bool boCheckValidFlg = false;
 
     volatile uint32_t *u32MetaData = (volatile uint32_t *)(0x0003E000);
 
-    uint8_t au8EveryWriteData1[16] = {0xA5, 0xA5, 0xA5, 0xA5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    uint8_t au8EveryWriteData2[16] = {0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC};
+    uint8_t au8EveryWriteData1[16] = {0xC5, 0xC5, 0xC5, 0xC5, 0xA5, 0xA5, 0xA5, 0xA5, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint8_t au8EveryWriteData2[16] = {0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66};
 
     if ((BOOT_A_VALID == u32MetaData[1]) || (BOOT_B_VALID == u32MetaData[1]))
     {
     }
     else
     {
-        bool boFirstWriteFlg = true;
-
-        while (boFirstWriteFlg)
+        while (u8Step < 3)
         {
-            /*Erase 8k, the last 8k in the 256k flash, start address: 0x0003E000*/
-            if (FLASH_EraseSector(0x0003E000 + (u32Loop1 * SECTOR_SIZE), &FlashDrive_CmdExeConfig) != SUCC)
+            switch (u8Step)
             {
-                if (0 == u32Loop2)
-                {
-                    if (FLASH_ProgramPhrase(0x0003E000 + u32Loop2, (uint8_t *)au8EveryWriteData1, &FlashDrive_CmdExeConfig) != SUCC)
+                case 0:
+                    if (SUCC == FLASH_EraseSector(0x0003E000 + (u32Loop1 * SECTOR_SIZE), &FlashDrive_CmdExeConfig))
+                        u8Step++;
+                    break;
+                case 1:
+                    if (SUCC == FLASH_ProgramPhrase(0x0003E000 + u32Loop2, (uint8_t *)au8EveryWriteData1, &FlashDrive_CmdExeConfig))
+                    {
                         u32Loop2 += 16;
-                }
-                else
-                {
-                    if (u32Loop2 >= SECTOR_SIZE)
-                    {
-                        /*Nothing*/
+                        u8Step++;
                     }
-                    else
+                    break;
+                case 2:
+                    if (SUCC == FLASH_ProgramPhrase(0x0003E000 + u32Loop2, (uint8_t *)au8EveryWriteData2, &FlashDrive_CmdExeConfig))
                     {
-                        if (FLASH_ProgramPhrase(0x0003E000 + u32Loop2, (uint8_t *)au8EveryWriteData2, &FlashDrive_CmdExeConfig) != SUCC)
-                            u32Loop2 += 16;
-
+                        u32Loop2 += 16;
                         if (u32Loop2 >= SECTOR_SIZE)
                         {
-                            u32Loop2        = SECTOR_SIZE;
-                            boFirstWriteFlg = false;
+                            u32Loop2 = SECTOR_SIZE;
+                            u8Step++;
                         }
                     }
-                }
+                    break;
+                case 3:
+                    /*Nothing*/
+                    break;
+                default:
+                    /*Nothing*/
+                    break;
             }
         }
     }
