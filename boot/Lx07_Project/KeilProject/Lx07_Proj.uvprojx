@@ -449,6 +449,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\StdDriver\Src\Z20K11xM_can.c</FilePath>
             </File>
+            <File>
+              <FileName>Z20K11xM_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\StdDriver\Src\Z20K11xM_flash.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -483,6 +488,11 @@
               <FileName>can.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\src\can.c</FilePath>
+            </File>
+            <File>
+              <FileName>FlashDriver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\FlashDriver.c</FilePath>
             </File>
           </Files>
         </Group>

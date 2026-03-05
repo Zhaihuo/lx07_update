@@ -34,6 +34,7 @@
 #include "Config.h"
 #include "Debounce.h"
 #include "touch.h"
+#include "FlashDrive.h"
 
 #define WDOG_EN 0
 
@@ -250,8 +251,11 @@ int main()
 #else
     __disable_irq();
     System_Init();
+    // __enable_irq();
+    // FlashDrive_Init();
+    // FlashDrive_Handler();
 
-    #define APP_START_ADDR (0x0002C000)
+#define APP_START_ADDR (0x0002C000)
 
     uint32_t jump_addr = APP_START_ADDR;
 
@@ -278,12 +282,7 @@ int main()
     // 直接跳转到 App 的 Reset_Handler
     ((void (*)(void))reset_handler_addr)();
 
-    uint8_t u8Test = 0;
-
-    while (true)
-    {
-        u8Test++;
-    }
+    while (true);
 
 #endif
 }
