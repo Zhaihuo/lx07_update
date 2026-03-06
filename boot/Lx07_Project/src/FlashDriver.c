@@ -60,7 +60,7 @@ static void FlashDrive_ResumeInterrupt(void);
 /*****************************************************************************
  * function definitions
  *****************************************************************************/
-void FlashDrive_Init(void)
+void FlashDrive_vInit(void)
 {
     ResultStatus_t Sts = FlashDrive_BoardInit();
 
@@ -71,16 +71,12 @@ void FlashDrive_Init(void)
     NVIC_EnableIRQ(FLASH_IRQn);
 }
 
-void FlashDrive_Handler(void)
+void FlashDrive_vHandler(void)
 {
-    // FlashDrive_vExample();
-
     uint32_t        u32Loop1 = 0;
     static uint32_t u32Loop2 = 0;
 
     static uint8_t u8Step = 0;
-
-    // static bool boCheckValidFlg = false;
 
     volatile uint32_t *u32MetaData = (volatile uint32_t *)(0x0003E000);
 
@@ -97,18 +93,20 @@ void FlashDrive_Handler(void)
             switch (u8Step)
             {
                 case 0:
-                    if (SUCC == FLASH_EraseSector(0x0003E000 + (u32Loop1 * SECTOR_SIZE), &FlashDrive_CmdExeConfig))
+                    if (FlashDrive_boEraseSector(0x0003E000))
                         u8Step++;
                     break;
                 case 1:
-                    if (SUCC == FLASH_ProgramPhrase(0x0003E000 + u32Loop2, (uint8_t *)au8EveryWriteData1, &FlashDrive_CmdExeConfig))
+                    if (FlashDrive_boProgramPhrase((0x0003E000 + u32Loop2), au8EveryWriteData1))
+
                     {
                         u32Loop2 += 16;
                         u8Step++;
                     }
-                    break;
+                    if (FlashDrive_boProgramPhrase((0x0003E000 + u32Loop2), au8EveryWriteData1))
+                        break;
                 case 2:
-                    if (SUCC == FLASH_ProgramPhrase(0x0003E000 + u32Loop2, (uint8_t *)au8EveryWriteData2, &FlashDrive_CmdExeConfig))
+                    if (FlashDrive_boProgramPhrase((0x0003E000 + u32Loop2), au8EveryWriteData2))
                     {
                         u32Loop2 += 16;
                         if (u32Loop2 >= SECTOR_SIZE)
@@ -129,6 +127,58 @@ void FlashDrive_Handler(void)
     }
 }
 
+bool FlashDrive_boEraseSector(uint32_t u32Addr) // erase 0x2000 bytes (8k) every time
+{
+    static bool boIntFlg = true;
+
+    if (SUCC == FLASH_EraseSector(u32Addr, &FlashDrive_CmdExeConfig))
+    {
+        /*擦除完成，恢复所有中断*/
+        FlashDrive_ResumeInterrupt();
+        boIntFlg = true;
+        return true;
+    }
+    else
+    {
+        if (boIntFlg)
+        {
+            /*擦除前，关闭所有中断*/
+            FlashDrive_SuspendInterrupt();
+            boIntFlg = false;
+        }
+
+        return false;
+    }
+}
+
+bool FlashDrive_boProgramPhrase(uint32_t u32Addr, uint8_t *pu8Data) // program 16 bytes every time
+{
+    static bool boIntFlg = true;
+
+    if (SUCC == FLASH_ProgramPhrase(u32Addr, (uint8_t *)pu8Data, &FlashDrive_CmdExeConfig))
+    {
+        /*擦除完成，恢复所有中断*/
+        FlashDrive_ResumeInterrupt();
+        boIntFlg = true;
+        return true;
+    }
+    else
+    {
+        if (boIntFlg)
+        {
+            /*擦除前，关闭所有中断*/
+            FlashDrive_SuspendInterrupt();
+            boIntFlg = false;
+        }
+
+        return false;
+    }
+}
+
+// bool FlashDrive_boProgramData(uint32_t u32Addr, uint8_t *pu8Data, uint16_t u16Len) // u16Len可选：128，256，512，1024
+// {
+// }
+
 static ResultStatus_t FlashDrive_BoardInit(void)
 {
     /* Interrupt vector table redefinition*/
@@ -139,62 +189,6 @@ static ResultStatus_t FlashDrive_BoardInit(void)
     WDOG_Disable();
 
     return SUCC;
-}
-
-static void FlashDrive_vExample(void)
-{
-    uint32_t uLoop;
-
-    /* start erase data flash, erase 8192 bytes every time*/
-    for (uLoop = 0; uLoop < 16; uLoop++)
-    {
-        if (FLASH_EraseSector(0x01000000 + (uLoop * SECTOR_SIZE),
-                              &FlashDrive_CmdExeConfig) != SUCC)
-        {
-            while (1);
-        }
-    }
-
-    /* program data flash(from 0x01000000 to 0x0101ffff), program 16 bytes every time */
-    uint8_t padValue[16];
-    for (uLoop = 0; uLoop < 16; uLoop++)
-    {
-        padValue[uLoop] = 0x5A;
-    }
-
-    for (uLoop = 0; uLoop < (SECTOR_SIZE * 16); uLoop += 16)
-    {
-        if (FLASH_ProgramPhrase(0x01000000 + uLoop, (uint8_t *)padValue,
-                                &FlashDrive_CmdExeConfig) != SUCC)
-        {
-            while (1);
-        }
-    }
-    /*You can read the specific data flash address(from 0x01000000 to 0x0101ffff) to check the result. */
-
-    /* start erase pflash, erase 8192 bytes every time*/
-    FlashDrive_SuspendInterrupt();
-    for (uLoop = 0; uLoop < 16; uLoop++)
-    {
-        if (FLASH_EraseSector(0x00010000 + (uLoop * SECTOR_SIZE),
-                              &FlashDrive_CmdExeConfig) != SUCC)
-        {
-            while (1);
-        }
-    }
-    FlashDrive_ResumeInterrupt();
-
-    /* program pflash(from 0x00010000 to 0x0002ffff), program 16 bytes every time */
-    FlashDrive_SuspendInterrupt();
-    for (uLoop = 0; uLoop < (SECTOR_SIZE * 16); uLoop += 16)
-    {
-        if (FLASH_ProgramPhrase(0x00010000 + uLoop, (uint8_t *)padValue,
-                                &FlashDrive_CmdExeConfig) != SUCC)
-        {
-            while (1);
-        }
-    }
-    FlashDrive_ResumeInterrupt();
 }
 
 /* Flash command complete interrupt function */

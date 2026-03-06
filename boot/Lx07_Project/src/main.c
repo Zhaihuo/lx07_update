@@ -252,8 +252,8 @@ int main()
     __disable_irq();
     System_Init();
     // __enable_irq();
-    FlashDrive_Init();
-    FlashDrive_Handler();
+    FlashDrive_vInit();
+    FlashDrive_vHandler();
 
 #define APP_START_ADDR (0x0002C000)
 
