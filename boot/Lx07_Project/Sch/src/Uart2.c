@@ -102,7 +102,7 @@ void Uart2_vprintf(const char *format, ...)
     }
 
     // 通过UART发送格式化后的字符串
-    Uart2_vSend(buffer, len);
+    Uart2_vSend((uint8_t *)buffer, len);
 }
 
 void Uart2_vInit(void)
