@@ -17,16 +17,6 @@
  *****************************************************************************/
 #include <stdint.h>
 #include <stdbool.h>
-
-#include "Z20K11xM_drv.h"
-#include "Z20K11xM_sysctrl.h"
-#include "Z20K11xM_clock.h"
-#include "Z20K11xM_srmc.h"
-#include "Z20K11xM_uart.h"
-#include "Z20K11xM_gpio.h"
-#include "Z20K11xM_flash.h"
-#include "Z20K11xM_wdog.h"
-#include "Z20K11xM_pmu.h"
 /*****************************************************************************
  * Global macros
  *****************************************************************************/

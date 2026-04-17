@@ -22,6 +22,7 @@
 #include <stdarg.h> // 用于处理可变参数
 #include <string.h> // 用于字符串操作
 #include <stdio.h>  // 用于sprintf
+
 /********************************************FF*********************************
  * Local macros
  *****************************************************************************/
@@ -33,7 +34,8 @@
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
-
+uint8_t au8ReadBuff[8] = {0};
+uint8_t u8Count        = 0;
 /*****************************************************************************
  * Local function prototypes
  *****************************************************************************/
@@ -41,6 +43,14 @@
 /*****************************************************************************
  * function definitions
  *****************************************************************************/
+void Uart2_vReadInt(void)
+{
+    au8ReadBuff[u8Count++] = UART_ReceiveByte(UART2_ID);
+
+    if (u8Count >= 8)
+        u8Count = 0;
+}
+
 void Uart2_vSend(uint8_t *logBuf, uint32_t logLen)
 {
     uint32_t i  = 0;
@@ -107,6 +117,15 @@ void Uart2_vInit(void)
     {
         (void)UART_ReceiveByte(UART2_ID);
     }
+
+    /*rx config*/
+    const UART_FIFOConfig_t fifoCfg =
+        {
+            ENABLE, ENABLE, ENABLE, UART_TX_FIFO_HALF, UART_RX_FIFO_CHAR_1};
+    UART_FIFOConfig(UART2_ID, &fifoCfg);
+    UART_InstallCallBackFunc(UART2_ID, UART_INT_RBFI, Uart2_vReadInt);
+    UART_IntMask(UART2_ID, UART_INT_RBFI, UNMASK);
+    NVIC_EnableIRQ(UART2_IRQn);
 }
 /*****************************************************************************
  * End file Uart2.c

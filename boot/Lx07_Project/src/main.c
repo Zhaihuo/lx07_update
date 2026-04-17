@@ -23,6 +23,7 @@
 #include <stdbool.h>
 
 #include "Uart2.h"
+#include "Task.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
@@ -70,7 +71,6 @@ void System_vInit(void)
     CLK_SetClkDivider(CLK_SLOW, CLK_DIV_8);
 
     Gpio_vInit();
-    Uart2_vInit();
 }
 
 int main(void)
@@ -79,6 +79,8 @@ int main(void)
     System_vInit();
     __enable_irq();
 
+    Uart2_vInit();
+    Task_vInit();
     // FlashDrive_vInit();
 
 #if 0
@@ -108,12 +110,7 @@ int main(void)
     ((void (*)(void))reset_handler_addr)();
 #endif
 
-    while (true)
-    {
-        UART_PRINTF("start\r\n");
-
-        for (uint32_t u16i = 0; u16i < 1000000; u16i++);
-    }
+    while (true);
 }
 /*****************************************************************************
  * End file main.c

@@ -469,6 +469,11 @@
               <FileType>1</FileType>
               <FilePath>..\Src\wdog.c</FilePath>
             </File>
+            <File>
+              <FileName>Task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\Task.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
