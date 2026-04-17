@@ -1,57 +1,29 @@
 /*****************************************************************************
- * @file Lx07.h
+ * @file Uart2.h
  *
  * @author
  *
  * @version 1.0
  *
- * @date 2025-09-22
+ * @date 2025-04-17
  *
  * @copyright Wuhan Baohua Display Technology Co., Ltd.
  *****************************************************************************/
-#ifndef LX07_H
-#define LX07_H
+#ifndef UART2_H
+#define UART2_H
 
 /*****************************************************************************
  * Include files
  *****************************************************************************/
-#include "Config.h"
-
+#include <stdint.h>
 /*****************************************************************************
  * Global macros
  *****************************************************************************/
-// #define ENABLE_HDMI
-#define ENABLE_CHECKBOARD
-
-// #define ENABLE_TP
-
-#define TASK_CYCLE 5u
-
-#define DES_GPIO_HIGH(pin)                                     \
-    do                                                         \
-    {                                                          \
-        uint16_t _addr = 0x0200 + (pin) * 0x3;                 \
-        uint8_t  _data = 0x10;                                 \
-        Ex_MstWriteBuffer(I2C0_ID, (uint8_t *)&_addr, &_data); \
-    } while (0)
-
-#define DES_GPIO_LOW(pin)                                      \
-    do                                                         \
-    {                                                          \
-        uint16_t _addr = 0x0200 + (pin) * 0x3;                 \
-        uint8_t  _data = 0x00;                                 \
-        Ex_MstWriteBuffer(I2C0_ID, (uint8_t *)&_addr, &_data); \
-    } while (0)
-
+#define UART_PRINTF(format, ...) Uart2_vprintf(format, ##__VA_ARGS__)
 /*****************************************************************************
  * Global data types
  *****************************************************************************/
-typedef struct
-{
-    uint8_t u8DstAddr;
-    uint8_t u8DstRegAddr;
-    uint8_t u8RegData;
-} Lx07_stI2cWrite;
+
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
@@ -59,9 +31,10 @@ typedef struct
 /*****************************************************************************
  * Global function prototypes
  *****************************************************************************/
-void Lx07_vTask5ms(void);
-void Lx07_vInit(void);
+void Uart2_vSend(const char *logBuf, uint32_t logLen);
+void Uart2_vprintf(const char *format, ...);
+void Uart2_vInit(void);
 #endif
 /*****************************************************************************
- * End file LX07_H
+ * End file UART2_H
  *****************************************************************************/

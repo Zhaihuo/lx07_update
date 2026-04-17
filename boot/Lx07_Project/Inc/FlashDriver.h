@@ -1,21 +1,32 @@
 /*****************************************************************************
- * @file BackL.h
+ * @file FlashDrive.h
  *
  * @author
  *
  * @version 1.0
  *
- * @date 2025-11-06
+ * @date 2026-03-03
  *
  * @copyright Wuhan Baohua Display Technology Co., Ltd.
  *****************************************************************************/
-#ifndef BACKL_H
-#define BACKL_H
+#ifndef FLASHDRIVE_H
+#define FLASHDRIVE_H
 
 /*****************************************************************************
  * Include files
  *****************************************************************************/
-#include "stdint.h"
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "Z20K11xM_drv.h"
+#include "Z20K11xM_sysctrl.h"
+#include "Z20K11xM_clock.h"
+#include "Z20K11xM_srmc.h"
+#include "Z20K11xM_uart.h"
+#include "Z20K11xM_gpio.h"
+#include "Z20K11xM_flash.h"
+#include "Z20K11xM_wdog.h"
+#include "Z20K11xM_pmu.h"
 /*****************************************************************************
  * Global macros
  *****************************************************************************/
@@ -31,13 +42,12 @@
 /*****************************************************************************
  * Global function prototypes
  *****************************************************************************/
-void BackL_vInit(void);
-void BackL_vHandle(void);
-void BackL_vReadLevel(void);
-void BackL_vWriteLevel(void);
-void BackL_vWriteLevFromCan(uint8_t u8Percent);
-void BackL_vDireating(uint8_t u8Temp);
+void FlashDrive_vInit(void);
+void FlashDrive_vHandler(void);
+
+bool FlashDrive_boEraseSector(uint32_t u32Addr);                     // erase 0x2000 bytes (8k) every time
+bool FlashDrive_boProgramPhrase(uint32_t u32Addr, uint8_t *pu8Data); // program 16 bytes every time
 #endif
 /*****************************************************************************
- * End file BACKL_H
+ * End file FLASHDRIVE_H
  *****************************************************************************/
