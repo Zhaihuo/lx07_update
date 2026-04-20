@@ -97,7 +97,6 @@ void FlashDrive_vHandler(void)
                     break;
                 case 1:
                     if (FlashDrive_boProgramPhrase((0x0003E000 + u32Loop2), au8EveryWriteData1))
-
                     {
                         u32Loop2 += 16;
                         u8Step++;
@@ -176,6 +175,7 @@ bool FlashDrive_boProgramPhrase(uint32_t u32Addr, uint8_t *pu8Data) // program 1
 
 // bool FlashDrive_boProgramData(uint32_t u32Addr, uint8_t *pu8Data, uint16_t u16Len) // u16Len可选：128，256，512，1024
 // {
+
 // }
 
 static ResultStatus_t FlashDrive_BoardInit(void)

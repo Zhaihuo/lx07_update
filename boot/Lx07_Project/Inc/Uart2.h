@@ -15,7 +15,16 @@
 /*****************************************************************************
  * Include files
  *****************************************************************************/
-#include <stdint.h>
+#include "Z20K11xM_drv.h"
+#include "Z20K11xM_clock.h"
+#include "Z20K11xM_sysctrl.h"
+#include "Z20K11xM_wdog.h"
+#include "Z20K11xM_gpio.h"
+#include "Z20K11xM_uart.h"
+#include <stdarg.h> // 用于处理可变参数
+#include <string.h> // 用于字符串操作
+#include <stdio.h>  // 用于sprintf
+
 /*****************************************************************************
  * Global macros
  *****************************************************************************/
@@ -32,7 +41,7 @@
  * Global function prototypes
  *****************************************************************************/
 void Uart2_vReadInt(void);
-void Uart2_vSend(const char *logBuf, uint32_t logLen);
+void Uart2_vSend(uint8_t *logBuf, uint32_t logLen);
 void Uart2_vprintf(const char *format, ...);
 void Uart2_vInit(void);
 #endif

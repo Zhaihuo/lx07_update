@@ -26,6 +26,7 @@
 #include "Z20K11xM_stim.h"
 
 #include "Uart2.h"
+#include "Update.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
@@ -55,6 +56,7 @@ const STIM_Config_t stimConfig = // 100ms
 void Task_vInt10ms(void)
 {
     // UART_PRINTF("start\r\n");
+    Update_vHandle();
 }
 
 void Task_vInit(void)

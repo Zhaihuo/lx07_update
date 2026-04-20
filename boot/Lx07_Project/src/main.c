@@ -24,10 +24,12 @@
 
 #include "Uart2.h"
 #include "Task.h"
+#include "Config.h"
+#include "FlashDriver.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
-#define APP_START_ADDR (0x0002C000)
+// #define APP_START_ADDR (0x0002C000)
 #define WDOG_EN        0
 /*****************************************************************************
  * Local data types
@@ -81,7 +83,7 @@ int main(void)
 
     Uart2_vInit();
     Task_vInit();
-    // FlashDrive_vInit();
+    FlashDrive_vInit();
 
 #if 0
     uint32_t jump_addr = APP_START_ADDR;

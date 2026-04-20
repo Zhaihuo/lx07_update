@@ -444,6 +444,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\StdDriver\Src\Z20K11xM_flash.c</FilePath>
             </File>
+            <File>
+              <FileName>Z20K11xM_regfile.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\StdDriver\Src\Z20K11xM_regfile.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -473,6 +478,11 @@
               <FileName>Task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\Task.c</FilePath>
+            </File>
+            <File>
+              <FileName>Update.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\Update.c</FilePath>
             </File>
           </Files>
         </Group>
