@@ -23,8 +23,7 @@
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
-#define REGFILE_ADDR (0x00)
-#define REGFILE_DATA (0x20260417) //
+
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
@@ -83,6 +82,8 @@ void Uart2_vReadInt(void)
 
 void Update_vInit(void)
 {
+    SYSCTRL_ResetModule(SYSCTRL_REGFILE);
+    SYSCTRL_EnableModule(SYSCTRL_REGFILE);
 }
 
 void Update_vHandle(void)
@@ -91,20 +92,22 @@ void Update_vHandle(void)
     {
         case UPDATE_IDLE:
         {
-            uint32_t u32Data = 0;
-            // REGFILE_ReadByRegID(REGFILE_ADDR, &u32Data);
+            uint32_t u32AppValue = 0;
+            REGFILE_ReadByRegID(REGFILE_ID_UPDATE, &u32AppValue);
 
-            // if (REGFILE_DATA == u32Data)
-            if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
+            if (REGFILE_UPDATE_FLG == u32AppValue)
             {
-                stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+                if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
+                {
+                    stUpdateInfo.enCurSts = UPDATE_STEP1_START;
 
-                stUpdateInfo.u8RecCount = 0;
-                memset(stUpdateInfo.au8RecBuffer, 0, sizeof(stUpdateInfo.au8RecBuffer));
-            }
-            else
-            {
-                // to app;
+                    stUpdateInfo.u8RecCount = 0;
+                    memset(stUpdateInfo.au8RecBuffer, 0, sizeof(stUpdateInfo.au8RecBuffer));
+                }
+                else
+                {
+                    // to app;
+                }
             }
             break;
         }
@@ -187,13 +190,11 @@ void Update_vHandle(void)
                 if (FlashDrive_boProgramPhrase(DFLASH_START, au8BootValid))
                     NVIC_SystemReset();
             }
-            // REGFILE_WriteByRegID(REGFILE_ADDR, 0);
-            // Update_vJumpApp();
+            // uint32_t u32AppValue = REGFILE_VALID_APP;
+            // REGFILE_WriteByRegID(REGFILE_ID, &u32AppValue);
             break;
         }
         case UPDATE_FAIL:
-            // REGFILE_WriteByRegID(REGFILE_ADDR, 0);
-            // Update_vJumpApp();
             break;
         default:
             break;

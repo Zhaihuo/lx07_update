@@ -19,13 +19,14 @@
 #include "Z20K11xM_wdog.h"
 #include "Z20K11xM_gpio.h"
 #include "Z20K11xM_uart.h"
+#include "Z20K11xM_regfile.h"
 #include <stdarg.h> // 用于处理可变参数
 #include <string.h> // 用于字符串操作
 #include <stdio.h>  // 用于sprintf
 /********************************************FF*********************************
  * Local macros
  *****************************************************************************/
-
+#define REGFILE_ID_UPDATE (0)
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
@@ -41,6 +42,26 @@
 /*****************************************************************************
  * function definitions
  *****************************************************************************/
+void Uart2_vReadInt(void)
+{
+    static uint8_t u8Count      = 0;
+    static uint8_t au8Buffer[4] = {0};
+    uint8_t        u8Data       = UART_ReceiveByte(UART2_ID);
+
+    au8Buffer[u8Count++] = u8Data;
+
+    if (u8Count >= 4)
+        u8Count = 0;
+
+    // update
+    if ((0x99 == au8Buffer[0]) && (0x99 == au8Buffer[1]) && (0x99 == au8Buffer[2]) && (0x99 == au8Buffer[3]))
+    {
+        uint32_t u32AppValue = 0x20260420;
+        REGFILE_WriteByRegID(REGFILE_ID_UPDATE, &u32AppValue);
+        NVIC_SystemReset();
+    }
+}
+
 void Uart2_vSend(uint8_t *logBuf, uint32_t logLen)
 {
     uint32_t i  = 0;
@@ -102,7 +123,7 @@ void Uart2_vprintf(const char *format, ...)
     }
 
     // 通过UART发送格式化后的字符串
-    Uart2_vSend((uint8_t*)buffer, len);
+    Uart2_vSend((uint8_t *)buffer, len);
 }
 
 void Uart2_vInit(void)
@@ -135,6 +156,19 @@ void Uart2_vInit(void)
     {
         (void)UART_ReceiveByte(UART2_ID);
     }
+
+    /*rx config*/
+    const UART_FIFOConfig_t fifoCfg =
+        {
+            ENABLE, ENABLE, ENABLE, UART_TX_FIFO_HALF, UART_RX_FIFO_CHAR_1};
+    UART_FIFOConfig(UART2_ID, &fifoCfg);
+    UART_InstallCallBackFunc(UART2_ID, UART_INT_RBFI, Uart2_vReadInt);
+    UART_IntMask(UART2_ID, UART_INT_RBFI, UNMASK);
+    NVIC_EnableIRQ(UART2_IRQn);
+
+    /*regfile init*/
+    SYSCTRL_ResetModule(SYSCTRL_REGFILE);
+    SYSCTRL_EnableModule(SYSCTRL_REGFILE);
 }
 /*****************************************************************************
  * End file Uart2.c

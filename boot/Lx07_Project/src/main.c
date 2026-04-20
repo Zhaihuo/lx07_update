@@ -19,9 +19,8 @@
 #include "Z20K11xM_wdog.h"
 #include "Z20K11xM_gpio.h"
 #include "Z20K11xM_uart.h"
-
+#include "Z20K11xM_regfile.h"
 #include <stdbool.h>
-
 #include "Uart2.h"
 #include "Task.h"
 #include "Config.h"
@@ -86,9 +85,15 @@ int main(void)
     Task_vInit();
     FlashDrive_vInit();
 
+    Update_vInit();
+
+    uint32_t u32AppValue = 0;
+
+    REGFILE_ReadByRegID(REGFILE_ID_UPDATE, &u32AppValue);
+
     uint32_t u32BootValye = *(volatile uint32_t *)DFLASH_START;
 
-    if (0xA5A5A5A5 == u32BootValye)
+    if (0xA5A5A5A5 == u32BootValye || (REGFILE_UPDATE_FLG != u32AppValue))
     {
         Update_vJumpApp();
     }
