@@ -26,11 +26,12 @@
 #include "Task.h"
 #include "Config.h"
 #include "FlashDriver.h"
+#include "Update.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
 // #define APP_START_ADDR (0x0002C000)
-#define WDOG_EN        0
+#define WDOG_EN 0
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
@@ -85,32 +86,12 @@ int main(void)
     Task_vInit();
     FlashDrive_vInit();
 
-#if 0
-    uint32_t jump_addr = APP_START_ADDR;
+    uint32_t u32BootValye = *(volatile uint32_t *)DFLASH_START;
 
-    // 只读取 Reset_Handler 地址（不读 MSP）
-    uint32_t reset_handler_addr = *(volatile uint32_t *)(jump_addr + 4);
-
-    // // 安全检查（可选）
-    // if ((reset_handler_addr & 0x01U) == 0 || reset_handler_addr < jump_addr)
-    // {
-    //     // 非法 → 进入升级模式
-    //     Enter_Upgrade_Mode();
-    //     return 0; // 或 while(1)
-    // }
-
-    // 跳转前强制 VTOR = 0
-    SCB->VTOR = 0x00000000UL;
-
-    // 清除 pending 中断
-    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk | SCB_ICSR_PENDSTCLR_Msk;
-
-    // 关中断（可选）
-    __disable_irq();
-
-    // 直接跳转到 App 的 Reset_Handler
-    ((void (*)(void))reset_handler_addr)();
-#endif
+    if (0xA5A5A5A5 == u32BootValye)
+    {
+        Update_vJumpApp();
+    }
 
     while (true);
 }

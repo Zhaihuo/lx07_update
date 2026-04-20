@@ -68,8 +68,11 @@ void Uart2_vReadInt(void)
 
                 if (4 == stUpdateInfo.u16UpgrateCount) // 判断主机发送的是不是最后一帧
                 {
-                    if ((0x66 == stUpdateInfo.au8UpgrateBuffer[0]) && (0x77 == stUpdateInfo.au8UpgrateBuffer[1]) && (0x77 == stUpdateInfo.au8UpgrateBuffer[2]) && (0x77 == stUpdateInfo.au8UpgrateBuffer[3]))
-                        stUpdateInfo.enCurSts = UPDATE_STEP5_LAST_FRAME;
+                    if ((0x66 == stUpdateInfo.au8UpgrateBuffer[0]) && (0x77 == stUpdateInfo.au8UpgrateBuffer[1]) && (0x88 == stUpdateInfo.au8UpgrateBuffer[2]) && (0x99 == stUpdateInfo.au8UpgrateBuffer[3]))
+                    {
+                        stUpdateInfo.u16UpgrateCount = 0;
+                        stUpdateInfo.enCurSts        = UPDATE_STEP5_LAST_FRAME;
+                    }
                 }
             }
             break;
@@ -84,7 +87,6 @@ void Update_vInit(void)
 
 void Update_vHandle(void)
 {
-
     switch (stUpdateInfo.enCurSts)
     {
         case UPDATE_IDLE:
@@ -177,9 +179,18 @@ void Update_vHandle(void)
             // to app
             break;
         case UPDATE_SUCCESS:
+        {
+            uint8_t au8BootValid[16] = {0xA5, 0xA5, 0xA5, 0xA5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+            if (FlashDrive_boEraseSector(DFLASH_START)) // erase 0x2000 8KB
+            {
+                if (FlashDrive_boProgramPhrase(DFLASH_START, au8BootValid))
+                    NVIC_SystemReset();
+            }
             // REGFILE_WriteByRegID(REGFILE_ADDR, 0);
-            Update_vJumpApp();
+            // Update_vJumpApp();
             break;
+        }
         case UPDATE_FAIL:
             // REGFILE_WriteByRegID(REGFILE_ADDR, 0);
             // Update_vJumpApp();
