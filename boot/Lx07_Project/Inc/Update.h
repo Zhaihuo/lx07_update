@@ -62,6 +62,7 @@ typedef struct
 void Update_vInit(void);
 void Update_vHandle(void);
 void Update_vJumpApp(void);
+bool Update_boJumpAppFlag(void);
 #endif
 /*****************************************************************************
  * End file UPDATE_H

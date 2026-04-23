@@ -216,8 +216,8 @@ class UartUpperComputer:
             # ===================== 新增：先发进入boot指令 0x99 0x99 0x99 0x99 =====================
             self.label_status.config(text="状态：发送进入boot指令 0x99 0x99 0x99 0x99", foreground="blue")
             self.ser.write(b'\x99\x99\x99\x99')
-            self.log("📤 自动发送：0x99 0x99 0x99 0x99 进入boot，等待2秒...")
-            time.sleep(2)  # 等待2秒
+            self.log("📤 自动发送：0x99 0x99 0x99 0x99 进入boot，等待1秒...")
+            time.sleep(1)  # 等待2秒
 
             # ========== 步骤1：发送开始升级 ==========
             self.label_status.config(text="状态：发送启动指令 0x12 0x34", foreground="blue")

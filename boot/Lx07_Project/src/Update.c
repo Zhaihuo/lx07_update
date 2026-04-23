@@ -20,6 +20,10 @@
 #include "Config.h"
 #include "string.h"
 #include "Uart2.h"
+#include "Z20K11xM_stim.h"
+#include "Z20k118M.h"
+#include "Z20K11xM_drv.h"
+#include "Z20K11xM_uart.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
@@ -28,6 +32,7 @@
  * Local data types
  *****************************************************************************/
 static uint32_t u32RegID00Val = 0;
+static bool     boJumpAppFlg  = false;
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
@@ -88,6 +93,44 @@ void Update_vInit(void)
 
 void Update_vDeInit(void)
 {
+    __disable_irq();
+
+    /*Reset update flag*/
+    uint32_t u32WrRegID00ValInit = 0x00;
+    REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00ValInit);
+
+    /*DeInit uart2*/
+    UART_IntMask(UART2_ID, UART_INT_ALL, MASK);
+    UART_EmptyRxFifo(UART2_ID);
+    SYSCTRL_ResetModule(SYSCTRL_UART2);
+    SYSCTRL_DisableModule(SYSCTRL_UART2);
+    NVIC_DisableIRQ(UART2_IRQn);
+    NVIC_ClearPendingIRQ(UART2_IRQn);
+
+    /*DeInit stim0*/
+    STIM_Disable(STIM_0);
+    STIM_IntCmd(STIM_0, DISABLE);
+    SYSCTRL_ResetModule(SYSCTRL_STIM);
+    SYSCTRL_DisableModule(SYSCTRL_STIM);
+    NVIC_DisableIRQ(STIM_IRQn);
+    NVIC_ClearPendingIRQ(STIM_IRQn);
+
+    /*DeInit flash*/
+    SYSCTRL_ResetModule(SYSCTRL_FLASH);
+    SYSCTRL_DisableModule(SYSCTRL_FLASH);
+    NVIC_DisableIRQ(FLASH_IRQn);
+
+    /*DeInit regfile*/
+    SYSCTRL_ResetModule(SYSCTRL_REGFILE);
+    SYSCTRL_DisableModule(SYSCTRL_REGFILE);
+
+    /*CLose SysTick*/
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0;
+    SysTick->VAL  = 0;
+
+    // NVIC->ICER[0] = 0xFFFFFFFF;
+    // NVIC->ICPR[0] = 0xFFFFFFFF;
 }
 
 void Update_vHandle(void) // 10ms
@@ -132,10 +175,7 @@ void Update_vHandle(void) // 10ms
             }
             else
             {
-                // Update_vJumpApp();
-                uint32_t u32WrRegID01Val = REGFILE_NORMAL_FLG;
-                REGFILE_WriteByRegID(REGFILE_ID_01, &u32WrRegID01Val);
-                NVIC_SystemReset();
+                boJumpAppFlg = true;
             }
             break;
         case UPDATE_STEP2_ERASE_FLASH:
@@ -199,26 +239,27 @@ void Update_vHandle(void) // 10ms
         }
         case UPDATE_STEP5_LAST_FRAME:
         {
-            // memset(&stUpdateInfo, 0, sizeof(stUpdateInfo));
-            stUpdateInfo.enCurSts         = UPDATE_SUCCESS;
-            stUpdateInfo.au8SendBuffer[0] = 0x99;
-            stUpdateInfo.au8SendBuffer[1] = 0x99;
-            Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机升级结束
+            static uint8_t u8DelagCt = 0;
+
+            if (0 == u8DelagCt)
+            {
+                // memset(&stUpdateInfo, 0, sizeof(stUpdateInfo));
+                stUpdateInfo.au8SendBuffer[0] = 0x99;
+                stUpdateInfo.au8SendBuffer[1] = 0x99;
+                Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机升级结束
+            }
+            else if (u8DelagCt >= 10) // 确保串口发送成功
+            {
+                stUpdateInfo.enCurSts = UPDATE_SUCCESS;
+            }
+            ELSE_NOTHING;
+
+            u8DelagCt++;
             break;
         }
         case UPDATE_SUCCESS:
         {
-            // Update_vJumpApp();
-            uint32_t u32WrRegID01Val = REGFILE_NORMAL_FLG;
-            REGFILE_WriteByRegID(REGFILE_ID_01, &u32WrRegID01Val);
-            NVIC_SystemReset();
-
-            // uint8_t au8BootValid[16] = {0xA5, 0xA5, 0xA5, 0xA5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-            // if (FlashDrive_boEraseSector(DFLASH_START)) // erase 0x2000 8KB
-            // {
-            //     if (FlashDrive_boProgramPhrase(DFLASH_START, au8BootValid))
-            //         NVIC_SystemReset();
-            // }
+            boJumpAppFlg = true;
             break;
         }
         case UPDATE_FAIL:
@@ -230,30 +271,24 @@ void Update_vHandle(void) // 10ms
 
 void Update_vJumpApp(void)
 {
-    uint32_t jump_addr = APP_START_ADDR;
+    Update_vDeInit();
 
-    // 只读取 Reset_Handler 地址（不读 MSP）
-    uint32_t reset_handler_addr = *(volatile uint32_t *)(jump_addr + 4);
+    typedef void (*app_entry_t)(void);
+    uint32_t    jump_addr         = APP_START_ADDR;
+    uint32_t    app_reset_handler = *(volatile uint32_t *)(jump_addr + 4);
+    app_entry_t app_entry         = (app_entry_t)app_reset_handler;
 
-    // // 安全检查（可选）
-    // if ((reset_handler_addr & 0x01U) == 0 || reset_handler_addr < jump_addr)
-    // {
-    //     // 非法 → 进入升级模式
-    //     Enter_Upgrade_Mode();
-    //     return 0; // 或 while(1)
-    // }
+    /* Cortex‑M0+*/
+    __DSB();
+    __ISB();
+    app_entry();
 
-    // 跳转前强制 VTOR = 0
-    SCB->VTOR = 0x00000000UL;
+    while (true);
+}
 
-    // 清除 pending 中断
-    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk | SCB_ICSR_PENDSTCLR_Msk;
-
-    // 关中断（可选）
-    __disable_irq();
-
-    // 直接跳转到 App 的 Reset_Handler
-    ((void (*)(void))reset_handler_addr)();
+bool Update_boJumpAppFlag(void)
+{
+    return boJumpAppFlg;
 }
 /*****************************************************************************
  * End file Update.c
