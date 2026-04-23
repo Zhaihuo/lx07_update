@@ -27,7 +27,7 @@
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
-
+static uint32_t u32RegID00Val = 0;
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
@@ -45,7 +45,7 @@ void Uart2_vReadInt(void)
 
     switch (stUpdateInfo.enCurSts)
     {
-        case UPDATE_IDLE:
+        case UPDATE_STEP1_START:
             stUpdateInfo.au8RecBuffer[stUpdateInfo.u8RecCount++] = u8Data;
             if (stUpdateInfo.u8RecCount >= 2)
                 stUpdateInfo.u8RecCount = 0;
@@ -86,33 +86,57 @@ void Update_vInit(void)
     SYSCTRL_EnableModule(SYSCTRL_REGFILE);
 }
 
-void Update_vHandle(void)
+void Update_vDeInit(void)
+{
+}
+
+void Update_vHandle(void) // 10ms
 {
     switch (stUpdateInfo.enCurSts)
     {
         case UPDATE_IDLE:
         {
-            uint32_t u32AppValue = 0;
-            REGFILE_ReadByRegID(REGFILE_ID_UPDATE, &u32AppValue);
-
-            if (REGFILE_UPDATE_FLG == u32AppValue)
+            REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
+            stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+            break;
+        }
+        case UPDATE_STEP1_START:
+            if (REGFILE_UPDATE_FLG == u32RegID00Val)
             {
+                static uint32_t u32WrRegID00Val = 0x00;
+                if (0x00 == u32WrRegID00Val) // 写一次标志位
+                {
+                    REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00Val);
+                    u32WrRegID00Val++;
+                }
+                ELSE_NOTHING;
+
                 if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
                 {
-                    stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+                    stUpdateInfo.enCurSts = UPDATE_STEP2_ERASE_FLASH;
 
                     stUpdateInfo.u8RecCount = 0;
                     memset(stUpdateInfo.au8RecBuffer, 0, sizeof(stUpdateInfo.au8RecBuffer));
                 }
-                else
+                else // 进入boot后，10s收不到升级指令会复位
                 {
-                    // to app;
+                    static uint16_t u16TimeCt = 0;
+                    u16TimeCt++;
+                    if (u16TimeCt >= (10000 / 10))
+                    {
+                        u16TimeCt = 0;
+                        NVIC_SystemReset();
+                    }
+                    ELSE_NOTHING;
                 }
             }
-            break;
-        }
-        case UPDATE_STEP1_START: // reserve
-            stUpdateInfo.enCurSts = UPDATE_STEP2_ERASE_FLASH;
+            else
+            {
+                // Update_vJumpApp();
+                uint32_t u32WrRegID01Val = REGFILE_NORMAL_FLG;
+                REGFILE_WriteByRegID(REGFILE_ID_01, &u32WrRegID01Val);
+                NVIC_SystemReset();
+            }
             break;
         case UPDATE_STEP2_ERASE_FLASH:
         {
@@ -174,24 +198,27 @@ void Update_vHandle(void)
             break;
         }
         case UPDATE_STEP5_LAST_FRAME:
+        {
             // memset(&stUpdateInfo, 0, sizeof(stUpdateInfo));
             stUpdateInfo.enCurSts         = UPDATE_SUCCESS;
             stUpdateInfo.au8SendBuffer[0] = 0x99;
             stUpdateInfo.au8SendBuffer[1] = 0x99;
             Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机升级结束
-            // to app
             break;
+        }
         case UPDATE_SUCCESS:
         {
-            uint8_t au8BootValid[16] = {0xA5, 0xA5, 0xA5, 0xA5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            // Update_vJumpApp();
+            uint32_t u32WrRegID01Val = REGFILE_NORMAL_FLG;
+            REGFILE_WriteByRegID(REGFILE_ID_01, &u32WrRegID01Val);
+            NVIC_SystemReset();
 
-            if (FlashDrive_boEraseSector(DFLASH_START)) // erase 0x2000 8KB
-            {
-                if (FlashDrive_boProgramPhrase(DFLASH_START, au8BootValid))
-                    NVIC_SystemReset();
-            }
-            // uint32_t u32AppValue = REGFILE_VALID_APP;
-            // REGFILE_WriteByRegID(REGFILE_ID, &u32AppValue);
+            // uint8_t au8BootValid[16] = {0xA5, 0xA5, 0xA5, 0xA5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            // if (FlashDrive_boEraseSector(DFLASH_START)) // erase 0x2000 8KB
+            // {
+            //     if (FlashDrive_boProgramPhrase(DFLASH_START, au8BootValid))
+            //         NVIC_SystemReset();
+            // }
             break;
         }
         case UPDATE_FAIL:

@@ -81,22 +81,22 @@ int main(void)
     System_vInit();
     __enable_irq();
 
+    Update_vInit();
+
+    uint32_t u32ReRegID01Val = 0x00;
+    uint32_t u32WrRegID01Val = 0x00;
+    REGFILE_ReadByRegID(REGFILE_ID_01, &u32ReRegID01Val);
+    if (REGFILE_NORMAL_FLG == u32ReRegID01Val)
+    {
+        REGFILE_WriteByRegID(REGFILE_ID_01, &u32WrRegID01Val);
+        Update_vJumpApp();
+    }
+
     Uart2_vInit();
     Task_vInit();
     FlashDrive_vInit();
 
-    Update_vInit();
-
-    uint32_t u32AppValue = 0;
-
-    REGFILE_ReadByRegID(REGFILE_ID_UPDATE, &u32AppValue);
-
-    uint32_t u32BootValye = *(volatile uint32_t *)DFLASH_START;
-
-    if (0xA5A5A5A5 == u32BootValye || (REGFILE_UPDATE_FLG != u32AppValue))
-    {
-        Update_vJumpApp();
-    }
+    // uint32_t u32BootValye = *(volatile uint32_t *)DFLASH_START;/*从地址读取数据*/
 
     while (true);
 }

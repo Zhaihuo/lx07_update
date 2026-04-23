@@ -39,10 +39,10 @@
  * Variant declarations
  *****************************************************************************/
 /* STIM configuration */
-const STIM_Config_t stimConfig = // 100ms
+const STIM_Config_t stimConfig = // 10ms
     {
         .workMode       = STIM_FREE_COUNT,
-        .compareValue   = 64000 * 100, /*counter clock is 64M, compare value =64000,  period = 1ms*/
+        .compareValue   = 64000 * 10, /*counter clock is 64M, compare value =64000,  period = 1ms*/
         .countResetMode = STIM_INCREASE_FROM_0,
         .clockSource    = STIM_FUNCTION_CLOCK,
 };
