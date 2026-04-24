@@ -1,40 +1,59 @@
-/**************************************************************************************************/
-/**
- * @file      : main.c
- * @brief     : PreBoot - 最基础启动代码 + 跳转到 Bootloader
- * @version   : V1.0 (for PreBoot)
- * @date      : 2025-2026
- * @note      : 只做极简初始化 + 读取标志 + 跳转
- **************************************************************************************************/
+/*****************************************************************************
+ * @file main.c
+ *
+ * @author
+ *
+ * @version 1.0
+ *
+ * @date 2026-04-24
+ *
+ * @copyright Wuhan Baohua Display Technology Co., Ltd.
+ *****************************************************************************/
 
+/*****************************************************************************
+ * Include files
+ *****************************************************************************/
 #include "Z20K11xM_drv.h"
 #include "Z20K11xM_clock.h"
 #include "Z20K11xM_sysctrl.h"
 #include "Z20K11xM_wdog.h"
+/*****************************************************************************
+ * Local macros
+ *****************************************************************************/
+#define BOOT_A_VALID      (0xA5A5A5A5)
+#define BOOT_B_VALID      (0xB5B5B5B5)
+#define BOOT_A_START_ADDR (0x0004000)
+#define BOOT_B_START_ADDR (0x000E000)
+#define BOOT_SIZE         (0x0000A000) // 40KB
 
-#define BOOT_A_VALID (0xA5A5A5A5u)
-#define BOOT_B_VALID (0xB5B5B5B5u)
+/*Pflash总共256KB:0x00000000~0x0003FFFF,最后4KB剩余用作标志位读写区域*/
+#define BOOT_VALID_STATUS_ADDR (0x0003F000)
+/*****************************************************************************
+ * Local data types
+ *****************************************************************************/
 
-/*256KB Flash 最后 8KB*/
-#define METADATA_BASE_ADDR 0x0003E000u
+/*****************************************************************************
+ * Variant declarations
+ *****************************************************************************/
 
-// metadata 内偏移（可自定义结构体）
-#define METADATA_MAGIC_OFFSET 0x00 // 魔数（可选校验）
-#define ACTIVE_BOOT_OFFSET    0x04 // 当前活动 Boot：0 = Boot_A, 1 = Boot_B
+/*****************************************************************************
+ * Local function prototypes
+ *****************************************************************************/
+static void Preboot_vInit(void);
+static void Preboot_vJumpToBoot(void);
+/*****************************************************************************
+ * function definitions
+ *****************************************************************************/
+int main(void)
+{
+    Preboot_vInit();
+    Preboot_vJumpToBoot();
+}
 
-/*boot_A和boot_B的起始地址*/
-#define BOOT_A_START_ADDR (0x00004000u)
-#define BOOT_B_START_ADDR (0x0000E000u)
-#define BOOT_SIZE         (0x0000A000u) /*40KB*/
-
-/*魔数 用于校验meta数据是否有效*/
-#define METADATA_MAGIC 0xC5C5C5C5u
-
-static void PreBoot_Init(void)
+static void Preboot_vInit(void)
 {
     SYSCTRL_EnableModule(SYSCTRL_WDOG);
     WDOG_Disable();
-    // 或者：WDOG_Feed();
     CLK_OSC40MEnable2(CLK_OSC_FREQ_MODE_HIGH, ENABLE, CLK_OSC_XTAL);
     CLK_SysClkSrc(CLK_SYS_FIRC64M);
     CLK_SetClkDivider(CLK_CORE, CLK_DIV_1);
@@ -42,59 +61,33 @@ static void PreBoot_Init(void)
     CLK_SetClkDivider(CLK_SLOW, CLK_DIV_8);
 }
 
-int main(void)
+static void Preboot_vJumpToBoot(void)
 {
-    PreBoot_Init();
+    void (*pBootResetHandler)(void);
 
-    /*读取 metadata，跳转到Boot_A或者Boot_B*/
-    volatile uint32_t *meta = (volatile uint32_t *)METADATA_BASE_ADDR;
+    /*读取BOOT有效标志*/
+    uint32_t u32BootStatus = *(volatile uint32_t *)BOOT_VALID_STATUS_ADDR;
 
-    /*校验魔数（防止读到垃圾数据）*/
-    if (meta[METADATA_MAGIC_OFFSET / 4] != METADATA_MAGIC)
+    uint32_t u32BootStartAddr;
+    if (BOOT_A_VALID == u32BootStatus)
     {
-        // 魔数不对 → 默认跳转 Boot_A
-        goto jump_to_boot_a;
+        u32BootStartAddr = BOOT_A_START_ADDR;
     }
-
-    uint32_t active_boot = meta[ACTIVE_BOOT_OFFSET / 4];
-
-    uint32_t jump_addr;
-
-    if (BOOT_A_VALID == active_boot)
+    else if (BOOT_B_VALID == u32BootStatus)
     {
-    jump_to_boot_a:
-        jump_addr = BOOT_A_START_ADDR;
-    }
-    else if (BOOT_B_VALID == active_boot)
-    {
-        jump_addr = BOOT_B_START_ADDR;
+        u32BootStartAddr = BOOT_B_START_ADDR;
     }
     else
     {
-        while (1); // 非法数据，死循环
+        u32BootStartAddr = BOOT_A_START_ADDR;
     }
 
-    /*读取目标 Bootloader 的向量表*/
-    uint32_t msp = *(volatile uint32_t *)jump_addr; // 栈顶指针
+    pBootResetHandler = (void (*)(void))(*(volatile uint32_t *)(u32BootStartAddr + 4));
 
-    uint32_t reset_handler = *(volatile uint32_t *)(jump_addr + 4); // 读取 Bootloader 的 Reset_Handler 地址
-
-    /*安全检查*/
-    if ((reset_handler & 0x01) == 0 || reset_handler < jump_addr)
-    {
-        while (1); // 非法地址，死循环
-    }
-
-    /*跳转前强制 VTOR 回默认（0x00000000），让 Bootloader 自己设置 VTOR*/
-    SCB->VTOR = 0x00000000UL;
-
-    /*清除所有 pending 中断（防止跳转后立即进错的中断）*/
-    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk | SCB_ICSR_PENDSTCLR_Msk;
-
-    /*关键：不要 __set_MSP()！保持 PreBoot 的 MSP*/
-    /*Bootloader 的 Reset_Handler 会自己重新设置 MSP 和 VTOR*/
-
-    ((void (*)(void))reset_handler)();
+    pBootResetHandler();
 
     while (1) {}
 }
+/*****************************************************************************
+ * End file main.c
+ *****************************************************************************/
