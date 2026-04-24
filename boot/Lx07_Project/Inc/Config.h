@@ -19,9 +19,11 @@
 /*****************************************************************************
  * Global macros
  *****************************************************************************/
-#define APP_START_ADDR (0x0002C000)
-#define APP_SIZE       (0x00012000) /* 72KB */
-#define SECTOR_SIZE    (0x2000)
+#define APP_A_START_ADDR (0x00018000)
+#define APP_B_START_ADDR (0x0002B800)
+#define APP_SIZE         (0x00013800) /* 78KB */
+
+#define SECTOR_SIZE (0x2000)
 
 #define DFLASH_START (0x01000000)
 #define DFLASH_SIZE  (0x00020000) /* 128KB */

@@ -1,0 +1,16 @@
+preboot：0x00000000
+size：0x00004000  /*16KB*/
+
+boot_A：0x00004000
+boot_B：0x0000E000
+size：0x0000A000 /*40KB*/
+
+app_A：0x00018000
+app_B：0x0002B800
+size：0x00013800 /*78KB*/
+
+free：0x0003F000 
+size：0x00001000 /*4KB*/
+
+Pflash：0x00000000~0x0003FFFF
+

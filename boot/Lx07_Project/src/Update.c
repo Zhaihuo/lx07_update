@@ -184,7 +184,7 @@ void Update_vHandle(void) // 10ms
 
             if (u8SectorCount < (APP_SIZE / SECTOR_SIZE))
             {
-                if (FlashDrive_boEraseSector(APP_START_ADDR + u8SectorCount * SECTOR_SIZE)) // erase 0x2000 8KB
+                if (FlashDrive_boEraseSector(APP_A_START_ADDR + u8SectorCount * SECTOR_SIZE)) // erase 0x2000 8KB
                 {
                     u8SectorCount++;
                 }
@@ -224,7 +224,7 @@ void Update_vHandle(void) // 10ms
 
                 while (u16Loop2 < UPDATE_DATA_SIZE)
                 {
-                    if (FlashDrive_boProgramPhrase((APP_START_ADDR + u16Loop2 + u32FlashOffset), (uint8_t *)(&stUpdateInfo.au8UpgrateBuffer[0 + u16Loop2])))
+                    if (FlashDrive_boProgramPhrase((APP_A_START_ADDR + u16Loop2 + u32FlashOffset), (uint8_t *)(&stUpdateInfo.au8UpgrateBuffer[0 + u16Loop2])))
                         u16Loop2 += 16;
                 }
                 // 每次写完偏移 +512
@@ -274,7 +274,7 @@ void Update_vJumpApp(void)
     Update_vDeInit();
 
     typedef void (*app_entry_t)(void);
-    uint32_t    jump_addr         = APP_START_ADDR;
+    uint32_t    jump_addr         = APP_A_START_ADDR;
     uint32_t    app_reset_handler = *(volatile uint32_t *)(jump_addr + 4);
     app_entry_t app_entry         = (app_entry_t)app_reset_handler;
 

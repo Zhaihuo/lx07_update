@@ -10,9 +10,9 @@ set DEVICE=Z20K118MC
 set preboot_hex=..\..\preboot\Lx07_Project\KeilProject\Objects\Lx07_Test.hex
 set preboot_addr=0x00000000
 set boot_hex=..\..\boot\Lx07_Project\KeilProject\Objects\Lx07_Test.hex
-set boot_addr=0x0000C000
+set boot_addr=0x00004000
 set app_hex=..\..\app\Lx07_Project\KeilProject\Objects\Lx07_Test.hex
-set app_addr=0x0002C000
+set app_addr=0x00018000
 
 set SPEED=4000
 set INTERFACE=SWD

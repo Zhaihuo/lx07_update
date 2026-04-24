@@ -4,7 +4,7 @@
 ; *************************************************************
 
 #define pflash_start               0x00000000
-#define pflash_size                0x0000C000    /* 48KB */
+#define pflash_size                0x00004000    /* 16KB */
 
 #define dflash_start               0x01000000
 #define dflash_size                0x00020000    /* 128KB */

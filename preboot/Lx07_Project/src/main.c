@@ -23,8 +23,9 @@
 #define ACTIVE_BOOT_OFFSET    0x04 // 当前活动 Boot：0 = Boot_A, 1 = Boot_B
 
 /*boot_A和boot_B的起始地址*/
-#define BOOT_A_START_ADDR 0x0000C000u // 0 + 48K（preboot size）
-#define BOOT_B_START_ADDR 0x0001C000u // 0 + 48K（preboot size） + 64K（boot_A size）
+#define BOOT_A_START_ADDR (0x00004000u)
+#define BOOT_B_START_ADDR (0x0000E000u)
+#define BOOT_SIZE         (0x0000A000u) /*40KB*/
 
 /*魔数 用于校验meta数据是否有效*/
 #define METADATA_MAGIC 0xC5C5C5C5u

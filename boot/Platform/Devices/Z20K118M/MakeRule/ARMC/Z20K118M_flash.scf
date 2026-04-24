@@ -3,22 +3,22 @@
 ; *** Scatter-Loading Description File                      ***
 ; *************************************************************
 
-#define BOOT_A 0x0000C000
-#define BOOT_B 0x0001C000
+#define BOOT_A 0x00004000
+#define BOOT_B 0x0000E000
 
 #define pflash_start               BOOT_A
-#define pflash_size                0x00010000    /* 64KB */
+#define pflash_size                0x0000A000    /* 40KB */
 
 #define dflash_start               0x01000000
 #define dflash_size                0x00020000    /* 128KB */
 
 
 #define ram0_start                 0x1fffc000
-#define ram0_size                  0x00004000    /* 16KB */
+#define ram0_size                  0x00000800    /* 2KB */
 #define ram0_end                   ram0_start + ram0_size
 
-#define ram1_start                 0x20000000
-#define ram1_size                  0x00004000    /* 16KB */
+#define ram1_start                 0x1fffc800
+#define ram1_size                  0x00007800    /* 30KB */
 #define ram1_end                   ram1_start + ram1_size
 
 LR_IROM1 pflash_start pflash_size  {    ; load region size_region
