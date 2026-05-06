@@ -26,6 +26,13 @@
 #define BOOT_B_START_ADDR (0x000E000)
 #define BOOT_SIZE         (0x0000A000) // 40KB
 
+#define SECTOR_SIZE (0x2000)
+
+#define DFLASH_START (0x01000000)
+#define DFLASH_SIZE  (0x00020000) /* 128KB */
+
+#define DFLASH_BOOT_STATUS_ADDR (DFLASH_START + DFLASH_SIZE - SECTOR_SIZE)
+
 /*Pflash总共256KB:0x00000000~0x0003FFFF,最后4KB剩余用作标志位读写区域*/
 #define BOOT_VALID_STATUS_ADDR (0x0003F000)
 /*****************************************************************************
@@ -66,7 +73,7 @@ static void Preboot_vJumpToBoot(void)
     void (*pBootResetHandler)(void);
 
     /*读取BOOT有效标志*/
-    uint32_t u32BootStatus = *(volatile uint32_t *)BOOT_VALID_STATUS_ADDR;
+    uint32_t u32BootStatus = *(volatile uint32_t *)DFLASH_BOOT_STATUS_ADDR;
 
     uint32_t u32BootStartAddr;
     if (BOOT_A_VALID == u32BootStatus)

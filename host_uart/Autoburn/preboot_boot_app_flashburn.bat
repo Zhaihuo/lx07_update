@@ -48,6 +48,7 @@ if not exist "%app_hex%" (echo 错误：找不到文件 %app_hex% & pause & exit
 echo 正在生成烧录脚本...
 (
 echo connect
+echo erase
 echo loadfile "%preboot_hex%" %preboot_addr%
 echo loadfile "%boot_hex%" %boot_addr%
 echo loadfile "%app_hex%" %app_addr%

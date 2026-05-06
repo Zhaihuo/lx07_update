@@ -31,16 +31,31 @@
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
-static uint32_t u32RegID00Val = 0;
-static bool     boJumpAppFlg  = false;
+typedef enum
+{
+    UPDATE_APP,
+    UPDATE_BOOT
+} Update_enType;
+
+typedef struct
+{
+    uint32_t      u32StartAddr;
+    uint32_t      u32Size;
+    Update_enType enUpdType;
+} Update_stAddr;
+
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
-Update_stInfo stUpdateInfo = {0};
+static uint32_t u32RegID00Val = 0;
+static bool     boJumpAppFlg  = false;
+
+Update_stInfo stUpdateInfo    = {0};
+Update_stAddr stUpdateAddrMsg = {0};
 /*****************************************************************************
  * Local function prototypes
  *****************************************************************************/
-
+static Update_stAddr Update_stGetAddrMsg(Update_enType enType, uint32_t u32Addr);
 /*****************************************************************************
  * function definitions
  *****************************************************************************/
@@ -135,17 +150,39 @@ void Update_vDeInit(void)
 
 void Update_vHandle(void) // 10ms
 {
+    uint8_t  au8BootValid[16] = {0};
+    uint32_t u32BootValue     = *(volatile uint32_t *)DFLASH_BOOT_STATUS_ADDR; /*从地址读取数据*/
+
     switch (stUpdateInfo.enCurSts)
     {
         case UPDATE_IDLE:
         {
-            REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
-            stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+            if ((BOOT_A_VALID != u32BootValue) && (BOOT_B_VALID != u32BootValue)) // 首次刷写，默认boot_A有效
+            {
+                au8BootValid[0] = (BOOT_A_VALID >> 24u) & 0xff;
+                au8BootValid[1] = (BOOT_A_VALID >> 16u) & 0xff;
+                au8BootValid[2] = (BOOT_A_VALID >> 8u) & 0xff;
+                au8BootValid[3] = (BOOT_A_VALID >> 0u) & 0xff;
+
+                if (FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR))
+                {
+                    if (FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
+                    {
+                        REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
+                        stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+                    }
+                }
+            }
+            else
+            {
+                REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
+                stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+            }
             break;
         }
         case UPDATE_STEP1_START:
         {
-            if (REGFILE_UPDATE_FLG == u32RegID00Val)
+            if (REGFILE_UPDATE_APP_FLG == u32RegID00Val)
             {
                 static uint32_t u32WrRegID00Val = 0x00;
                 if (0x00 == u32WrRegID00Val) // 写一次标志位
@@ -157,6 +194,48 @@ void Update_vHandle(void) // 10ms
 
                 if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
                 {
+                    Update_stGetAddrMsg(UPDATE_APP, APP_A_START_ADDR);
+                    stUpdateInfo.enCurSts = UPDATE_STEP2_ERASE_FLASH;
+
+                    stUpdateInfo.u8RecCount = 0;
+                    memset(stUpdateInfo.au8RecBuffer, 0, sizeof(stUpdateInfo.au8RecBuffer));
+                }
+                else // 进入boot后，10s收不到升级指令会复位
+                {
+                    static uint16_t u16TimeCt = 0;
+                    u16TimeCt++;
+                    if (u16TimeCt >= (10000 / 10))
+                    {
+                        u16TimeCt = 0;
+                        NVIC_SystemReset();
+                    }
+                    ELSE_NOTHING;
+                }
+            }
+            else if (REGFILE_UPDATE_BOOT_FLG == u32RegID00Val)
+            {
+                static uint32_t u32WrRegID00Val = 0x00;
+                if (0x00 == u32WrRegID00Val) // 写一次标志位
+                {
+                    REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00Val);
+                    u32WrRegID00Val++;
+                }
+                ELSE_NOTHING;
+
+                if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
+                {
+                    if (BOOT_A_VALID == u32BootValue)
+                    {
+                        Update_stGetAddrMsg(UPDATE_BOOT, BOOT_B_START_ADDR);
+                    }
+                    else if (BOOT_B_VALID == u32BootValue)
+                    {
+                        Update_stGetAddrMsg(UPDATE_BOOT, BOOT_A_START_ADDR);
+                    }
+                    else /*升级异常*/
+                    {
+                        NVIC_SystemReset();
+                    }
                     stUpdateInfo.enCurSts = UPDATE_STEP2_ERASE_FLASH;
 
                     stUpdateInfo.u8RecCount = 0;
@@ -184,15 +263,15 @@ void Update_vHandle(void) // 10ms
         {
             static uint8_t u8SectorCount = 0;
 
-            if (u8SectorCount < (APP_SIZE / SECTOR_SIZE))
+            if (u8SectorCount < (stUpdateAddrMsg.u32Size / SECTOR_SIZE))
             {
-                if (FlashDrive_boEraseSector(APP_A_START_ADDR + u8SectorCount * SECTOR_SIZE)) // erase 0x2000 8KB
+                if (FlashDrive_boEraseSector(stUpdateAddrMsg.u32StartAddr + u8SectorCount * SECTOR_SIZE)) // erase 0x2000 8KB
                 {
                     u8SectorCount++;
                 }
             }
 
-            if (u8SectorCount >= (APP_SIZE / SECTOR_SIZE))
+            if (u8SectorCount >= (stUpdateAddrMsg.u32Size / SECTOR_SIZE))
             {
                 stUpdateInfo.au8SendBuffer[0] = 0xA5;
                 stUpdateInfo.au8SendBuffer[1] = 0xB5;
@@ -226,7 +305,7 @@ void Update_vHandle(void) // 10ms
 
                 while (u16Loop2 < UPDATE_DATA_SIZE)
                 {
-                    if (FlashDrive_boProgramPhrase((APP_A_START_ADDR + u16Loop2 + u32FlashOffset), (uint8_t *)(&stUpdateInfo.au8UpgrateBuffer[0 + u16Loop2])))
+                    if (FlashDrive_boProgramPhrase((stUpdateAddrMsg.u32StartAddr + u16Loop2 + u32FlashOffset), (uint8_t *)(&stUpdateInfo.au8UpgrateBuffer[0 + u16Loop2])))
                         u16Loop2 += 16;
                 }
                 // 每次写完偏移 +512
@@ -261,7 +340,37 @@ void Update_vHandle(void) // 10ms
         }
         case UPDATE_SUCCESS:
         {
-            boJumpAppFlg = true;
+            if (UPDATE_APP == stUpdateAddrMsg.enUpdType)
+            {
+                boJumpAppFlg = true;
+            }
+            else
+            {
+                if (BOOT_A_VALID == u32BootValue)
+                {
+                    au8BootValid[0] = (BOOT_B_VALID >> 24u) & 0xff;
+                    au8BootValid[1] = (BOOT_B_VALID >> 16u) & 0xff;
+                    au8BootValid[2] = (BOOT_B_VALID >> 8u) & 0xff;
+                    au8BootValid[3] = (BOOT_B_VALID >> 0u) & 0xff;
+                }
+                else if (BOOT_B_VALID == u32BootValue)
+                {
+                    au8BootValid[0] = (BOOT_A_VALID >> 24u) & 0xff;
+                    au8BootValid[1] = (BOOT_A_VALID >> 16u) & 0xff;
+                    au8BootValid[2] = (BOOT_A_VALID >> 8u) & 0xff;
+                    au8BootValid[3] = (BOOT_A_VALID >> 0u) & 0xff;
+                }
+                else /*升级异常*/
+                {
+                    NVIC_SystemReset();
+                }
+
+                if (FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR))
+                {
+                    if (FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
+                        boJumpAppFlg = true;
+                }
+            }
             break;
         }
         case UPDATE_FAIL:
@@ -269,6 +378,23 @@ void Update_vHandle(void) // 10ms
         default:
             break;
     }
+}
+
+static Update_stAddr Update_stGetAddrMsg(Update_enType enType, uint32_t u32Addr)
+{
+    if (UPDATE_APP == enType)
+    {
+        stUpdateAddrMsg.u32StartAddr = u32Addr;
+        stUpdateAddrMsg.u32Size      = APP_SIZE;
+    }
+    else
+    {
+        stUpdateAddrMsg.u32StartAddr = u32Addr;
+        stUpdateAddrMsg.u32Size      = BOOT_SIZE;
+    }
+    stUpdateAddrMsg.enUpdType = enType;
+
+    return stUpdateAddrMsg;
 }
 
 void Update_vJumpApp(void)

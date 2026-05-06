@@ -10,7 +10,7 @@ from intelhex import IntelHex
 class UartUpperComputer:
     def __init__(self, root):
         self.root = root
-        self.root.title("UART 串口上位机 (HEX自动升级版)")
+        self.root.title("UART 串口上位机 (app升级)")
         self.root.geometry("820x720")
         self.root.resizable(False, False)
 
@@ -213,10 +213,10 @@ class UartUpperComputer:
         try:
             self.log("\n==================== 自动升级开始 ====================")
 
-            # ===================== 新增：先发进入boot指令 0x99 0x99 0x99 0x99 =====================
-            self.label_status.config(text="状态：发送进入boot指令 0x99 0x99 0x99 0x99", foreground="blue")
-            self.ser.write(b'\x99\x99\x99\x99')
-            self.log("📤 自动发送：0x99 0x99 0x99 0x99 进入boot，等待1秒...")
+            # ===================== 先发进入boot指令 0x02 0x02 0x02 0x02 =====================
+            self.label_status.config(text="状态：发送进入boot指令 0x02 0x02 0x02 0x02", foreground="blue")
+            self.ser.write(b'\x02\x02\x02\x02')#update app
+            self.log("📤 自动发送：0x02 0x02 0x02 0x02 进入boot，等待1秒...")
             time.sleep(1)  # 等待2秒
 
             # ========== 步骤1：发送开始升级 ==========
