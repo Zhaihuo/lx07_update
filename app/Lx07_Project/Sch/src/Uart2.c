@@ -26,7 +26,8 @@
 /********************************************FF*********************************
  * Local macros
  *****************************************************************************/
-#define REGFILE_ID_UPDATE (0)
+#define REGFILE_ID_UPDATE  (0)
+#define REGFILE_UPDATE_FLG (0x00021002)
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
@@ -56,7 +57,7 @@ void Uart2_vReadInt(void)
     // update
     if ((0x99 == au8Buffer[0]) && (0x99 == au8Buffer[1]) && (0x99 == au8Buffer[2]) && (0x99 == au8Buffer[3]))
     {
-        uint32_t u32AppValue = 0x20260420;
+        uint32_t u32AppValue = REGFILE_UPDATE_FLG;
         REGFILE_WriteByRegID(REGFILE_ID_UPDATE, &u32AppValue);
         NVIC_SystemReset();
     }

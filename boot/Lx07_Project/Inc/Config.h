@@ -30,7 +30,7 @@
 
 #define REGFILE_ID_00      (0)
 #define REGFILE_ID_01      (1)
-#define REGFILE_UPDATE_FLG (0x20260420)
+#define REGFILE_UPDATE_FLG (0x00021002)
 #define REGFILE_NORMAL_FLG (0xA5A5A5A5)
 
 #define ELSE_NOTHING \

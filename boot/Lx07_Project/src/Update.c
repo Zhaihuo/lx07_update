@@ -144,6 +144,7 @@ void Update_vHandle(void) // 10ms
             break;
         }
         case UPDATE_STEP1_START:
+        {
             if (REGFILE_UPDATE_FLG == u32RegID00Val)
             {
                 static uint32_t u32WrRegID00Val = 0x00;
@@ -178,6 +179,7 @@ void Update_vHandle(void) // 10ms
                 boJumpAppFlg = true;
             }
             break;
+        }
         case UPDATE_STEP2_ERASE_FLASH:
         {
             static uint8_t u8SectorCount = 0;
