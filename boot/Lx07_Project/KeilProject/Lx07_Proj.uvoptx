@@ -175,6 +175,11 @@
           <WinNumber>1</WinNumber>
           <ItemText>u32Data1</ItemText>
         </Ww>
+        <Ww>
+          <count>5</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>boJumpAppFlg</ItemText>
+        </Ww>
       </WatchWindow1>
       <WatchWindow2>
         <Ww>
