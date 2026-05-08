@@ -115,12 +115,12 @@ void Update_vDeInit(void)
     REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00ValInit);
 
     /*DeInit uart2*/
-    UART_IntMask(UART2_ID, UART_INT_ALL, MASK);
+    // UART_IntMask(UART2_ID, UART_INT_ALL, MASK);
     // UART_EmptyRxFifo(UART2_ID);
     // SYSCTRL_ResetModule(SYSCTRL_UART2);
     // SYSCTRL_DisableModule(SYSCTRL_UART2);
-    NVIC_DisableIRQ(UART2_IRQn);
-    NVIC_ClearPendingIRQ(UART2_IRQn);
+    // NVIC_DisableIRQ(UART2_IRQn);
+    // NVIC_ClearPendingIRQ(UART2_IRQn);
 
     /*DeInit stim0*/
     STIM_Disable(STIM_0);
@@ -219,23 +219,30 @@ void Update_vHandle(void) // 10ms
                 {
                     REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00Val);
                     u32WrRegID00Val++;
-                }
-                ELSE_NOTHING;
 
-                if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
-                {
                     if (BOOT_A_VALID == u32BootValue)
                     {
+                        stUpdateInfo.au8SendBuffer[0] = 0xB5;
+                        stUpdateInfo.au8SendBuffer[1] = 0xB5;
+                        Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机发送boot_B文件:0x0000E000 size:0x0000A000
                         Update_stGetAddrMsg(UPDATE_BOOT, BOOT_B_START_ADDR);
                     }
                     else if (BOOT_B_VALID == u32BootValue)
                     {
+                        stUpdateInfo.au8SendBuffer[0] = 0xA5;
+                        stUpdateInfo.au8SendBuffer[1] = 0xA5;
+                        Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机发送boot_A文件:0x00004000 size:0x0000A000
                         Update_stGetAddrMsg(UPDATE_BOOT, BOOT_A_START_ADDR);
                     }
                     else /*升级异常*/
                     {
                         NVIC_SystemReset();
                     }
+                }
+                ELSE_NOTHING;
+
+                if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机准备发送文件的标志
+                {
                     stUpdateInfo.enCurSts = UPDATE_STEP2_ERASE_FLASH;
 
                     stUpdateInfo.u8RecCount = 0;
@@ -248,7 +255,7 @@ void Update_vHandle(void) // 10ms
                     if (u16TimeCt >= (10000 / 10))
                     {
                         u16TimeCt = 0;
-                        NVIC_SystemReset();
+                        // NVIC_SystemReset();
                     }
                     ELSE_NOTHING;
                 }

@@ -1,25 +1,32 @@
 @echo off
-chcp 65001 > nul
 setlocal enabledelayedexpansion
-
-:: 以脚本所在目录为基准
 cd /d "%~dp0"
 
-:: 关键：用 \ 代替 /
-set "BIN_A=..\..\boot\Lx07_Project\KeilProject\Objects\Lx07_Boot_A.bin"
-set "BIN_B=..\..\boot\Lx07_Project\KeilProject\Objects\Lx07_Boot_B.bin"
+:: 出错立即停止
+set "errorstatus=0"
 
-echo 正在合成...
-echo 路径A: !BIN_A!
-echo 路径B: !BIN_B!
+:: 复制 A
+copy "..\..\boot\Lx07_Project\KeilProject\Objects\Lx07_Boot_A.bin" .
+if errorlevel 1 goto fail
 
-:: 合成命令
-copy /b "!BIN_A!" + "!BIN_B!" "boot.bin"
+:: 复制 B
+copy "..\..\boot\Lx07_Project\KeilProject\Objects\Lx07_Boot_B.bin" .
+if errorlevel 1 goto fail
+
+:: 生成正确布局 bin
+powershell -Command "$out=New-Object byte[] 0x18000; for($i=0;$i -lt 0x18000;$i++){$out[$i]=0xFF}; $a=[System.IO.File]::ReadAllBytes('Lx07_Boot_A.bin'); $b=[System.IO.File]::ReadAllBytes('Lx07_Boot_B.bin'); $a.CopyTo($out, 0x4000); $b.CopyTo($out, 0xE000); [System.IO.File]::WriteAllBytes('boot.bin',$out)"
+if errorlevel 1 goto fail
+
+:: 清理临时文件
+del Lx07_Boot_A.bin
+del Lx07_Boot_B.bin
 
 echo.
-if exist "boot.bin" (
-    echo ✅ 合成成功！
-) else (
-    echo ❌ 合成失败
-)
+echo get boot.bin successful!
+exit /b 0
+
+:fail
+echo.
+echo ERROR: Build failed!
 pause
+exit /b 1
