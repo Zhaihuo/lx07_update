@@ -15,7 +15,6 @@
  *****************************************************************************/
 #include "Update.h"
 #include "Z20K11xM_regfile.h"
-#include "Uart2.h"
 #include "FlashDriver.h"
 #include "Config.h"
 #include "string.h"
@@ -151,32 +150,62 @@ void Update_vDeInit(void)
 void Update_vHandle(void) // 10ms
 {
     uint8_t  au8BootValid[16] = {0};
+    uint8_t  au8AppValid[16]  = {0};
     uint32_t u32BootValue     = *(volatile uint32_t *)DFLASH_BOOT_STATUS_ADDR; /*从地址读取数据*/
+    uint32_t u32AppValue      = *(volatile uint32_t *)DFLASH_APP_STATUS_ADDR;  /*从地址读取数据*/
 
     switch (stUpdateInfo.enCurSts)
     {
         case UPDATE_IDLE:
         {
-            if ((BOOT_A_VALID != u32BootValue) && (BOOT_B_VALID != u32BootValue)) // 首次刷写，默认boot_A有效
-            {
-                au8BootValid[0] = (BOOT_A_VALID >> 24u) & 0xff;
-                au8BootValid[1] = (BOOT_A_VALID >> 16u) & 0xff;
-                au8BootValid[2] = (BOOT_A_VALID >> 8u) & 0xff;
-                au8BootValid[3] = (BOOT_A_VALID >> 0u) & 0xff;
+            static bool boCheckApp  = false;
+            static bool boCheckBoot = false;
 
-                if (FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR))
-                {
-                    if (FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
-                    {
-                        REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
-                        stUpdateInfo.enCurSts = UPDATE_STEP1_START;
-                    }
-                }
-            }
-            else
+            if ((BOOT_A_VALID != u32BootValue) && (BOOT_B_VALID != u32BootValue)) // 检测是否首次烧录boot
+                boCheckBoot = true;
+
+            if ((APP_A_VALID != u32AppValue) && (APP_B_VALID != u32AppValue)) // 检测是否首次烧录app
+                boCheckApp = true;
+
+            if ((!boCheckApp) && (!boCheckBoot))
             {
                 REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
                 stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+            }
+            else
+            {
+                static bool boWrBootFlg = true;
+                static bool boWrAppFlg  = true;
+
+                if (boCheckBoot)
+                {
+                    au8BootValid[0] = (BOOT_A_VALID >> 24u) & 0xff;
+                    au8BootValid[1] = (BOOT_A_VALID >> 16u) & 0xff;
+                    au8BootValid[2] = (BOOT_A_VALID >> 8u) & 0xff;
+                    au8BootValid[3] = (BOOT_A_VALID >> 0u) & 0xff;
+                    boWrBootFlg     = false;
+                }
+
+                if (boCheckApp)
+                {
+                    au8AppValid[0] = (APP_A_VALID >> 24u) & 0xff;
+                    au8AppValid[1] = (APP_A_VALID >> 16u) & 0xff;
+                    au8AppValid[2] = (APP_A_VALID >> 8u) & 0xff;
+                    au8AppValid[3] = (APP_A_VALID >> 0u) & 0xff;
+                    boWrAppFlg     = false;
+                }
+
+                if ((!boWrBootFlg) && FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR) && FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
+                    boWrBootFlg = true;
+
+                if ((!boWrAppFlg) && FlashDrive_boEraseSector(DFLASH_APP_STATUS_ADDR) && FlashDrive_boProgramPhrase(DFLASH_APP_STATUS_ADDR, au8AppValid))
+                    boWrAppFlg = true;
+
+                if (boWrBootFlg && boWrAppFlg)
+                {
+                    REGFILE_ReadByRegID(REGFILE_ID_00, &u32RegID00Val);
+                    stUpdateInfo.enCurSts = UPDATE_STEP1_START;
+                }
             }
             break;
         }
@@ -189,12 +218,30 @@ void Update_vHandle(void) // 10ms
                 {
                     REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00Val);
                     u32WrRegID00Val++;
+
+                    if (APP_A_VALID == u32AppValue)
+                    {
+                        stUpdateInfo.au8SendBuffer[0] = 0xB5;
+                        stUpdateInfo.au8SendBuffer[1] = 0xB5;
+                        Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机发送app_B文件:0x0002B800 size:0x00013800
+                        Update_stGetAddrMsg(UPDATE_APP, APP_B_START_ADDR);
+                    }
+                    else if (APP_B_VALID == u32AppValue)
+                    {
+                        stUpdateInfo.au8SendBuffer[0] = 0xA5;
+                        stUpdateInfo.au8SendBuffer[1] = 0xA5;
+                        Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机发送app_A文件:0x00018000 size:0x00013800
+                        Update_stGetAddrMsg(UPDATE_APP, APP_A_START_ADDR);
+                    }
+                    else /*升级异常*/
+                    {
+                        NVIC_SystemReset();
+                    }
                 }
                 ELSE_NOTHING;
 
                 if ((0x12 == stUpdateInfo.au8RecBuffer[0]) && (0x34 == stUpdateInfo.au8RecBuffer[1])) // 收到上位机的进入升级标志
                 {
-                    Update_stGetAddrMsg(UPDATE_APP, APP_A_START_ADDR);
                     stUpdateInfo.enCurSts = UPDATE_STEP2_ERASE_FLASH;
 
                     stUpdateInfo.u8RecCount = 0;
@@ -255,7 +302,7 @@ void Update_vHandle(void) // 10ms
                     if (u16TimeCt >= (10000 / 10))
                     {
                         u16TimeCt = 0;
-                        // NVIC_SystemReset();
+                        NVIC_SystemReset();
                     }
                     ELSE_NOTHING;
                 }
@@ -349,7 +396,27 @@ void Update_vHandle(void) // 10ms
         {
             if (UPDATE_APP == stUpdateAddrMsg.enUpdType)
             {
-                boJumpAppFlg = true;
+                if (APP_A_VALID == u32AppValue)
+                {
+                    au8AppValid[0] = (APP_B_VALID >> 24u) & 0xff;
+                    au8AppValid[1] = (APP_B_VALID >> 16u) & 0xff;
+                    au8AppValid[2] = (APP_B_VALID >> 8u) & 0xff;
+                    au8AppValid[3] = (APP_B_VALID >> 0u) & 0xff;
+                }
+                else if (APP_B_VALID == u32AppValue)
+                {
+                    au8AppValid[0] = (APP_A_VALID >> 24u) & 0xff;
+                    au8AppValid[1] = (APP_A_VALID >> 16u) & 0xff;
+                    au8AppValid[2] = (APP_A_VALID >> 8u) & 0xff;
+                    au8AppValid[3] = (APP_A_VALID >> 0u) & 0xff;
+                }
+                else /*升级异常*/
+                {
+                    NVIC_SystemReset();
+                }
+
+                if (FlashDrive_boEraseSector(DFLASH_APP_STATUS_ADDR) && FlashDrive_boProgramPhrase(DFLASH_APP_STATUS_ADDR, au8AppValid))
+                    boJumpAppFlg = true;
             }
             else
             {
@@ -372,11 +439,8 @@ void Update_vHandle(void) // 10ms
                     NVIC_SystemReset();
                 }
 
-                if (FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR))
-                {
-                    if (FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
-                        boJumpAppFlg = true;
-                }
+                if (FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR) && FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
+                    boJumpAppFlg = true;
             }
             break;
         }
@@ -408,8 +472,24 @@ void Update_vJumpApp(void)
 {
     Update_vDeInit();
 
+    uint32_t jump_addr = APP_A_START_ADDR;
+
+    uint32_t u32AppValue = *(volatile uint32_t *)DFLASH_APP_STATUS_ADDR; /*从地址读取数据*/
+
+    if (APP_A_VALID == u32AppValue)
+    {
+        jump_addr = APP_A_START_ADDR;
+    }
+    else if (APP_B_VALID == u32AppValue)
+    {
+        jump_addr = APP_B_START_ADDR;
+    }
+    else
+    {
+        jump_addr = APP_A_START_ADDR;
+    }
+
     typedef void (*app_entry_t)(void);
-    uint32_t    jump_addr         = APP_A_START_ADDR;
     uint32_t    app_reset_handler = *(volatile uint32_t *)(jump_addr + 4);
     app_entry_t app_entry         = (app_entry_t)app_reset_handler;
 

@@ -2,20 +2,22 @@
 ; *************************************************************
 ; *** Scatter-Loading Description File                      ***
 ; *************************************************************
+#define APP_A 0x00018000
+#define APP_B 0x0002B800
 
-#define pflash_start               0x00000000
-#define pflash_size                0x00040000    /* 256KB */
+#define pflash_start               APP_B
+#define pflash_size                0x00013800    /* 78KB */
 
 #define dflash_start               0x01000000
 #define dflash_size                0x00020000    /* 128KB */
 
 
 #define ram0_start                 0x1fffc000
-#define ram0_size                  0x00004000    /* 16KB */
+#define ram0_size                  0x00000800    /* 2KB */
 #define ram0_end                   ram0_start + ram0_size
 
-#define ram1_start                 0x20000000
-#define ram1_size                  0x00004000    /* 16KB */
+#define ram1_start                 0x1fffc800
+#define ram1_size                  0x00007800    /* 30KB */
 #define ram1_end                   ram1_start + ram1_size
 
 LR_IROM1 pflash_start pflash_size  {    ; load region size_region
