@@ -114,12 +114,12 @@ void Update_vDeInit(void)
     REGFILE_WriteByRegID(REGFILE_ID_00, &u32WrRegID00ValInit);
 
     /*DeInit uart2*/
-    // UART_IntMask(UART2_ID, UART_INT_ALL, MASK);
+    UART_IntMask(UART2_ID, UART_INT_ALL, MASK);
     // UART_EmptyRxFifo(UART2_ID);
     // SYSCTRL_ResetModule(SYSCTRL_UART2);
     // SYSCTRL_DisableModule(SYSCTRL_UART2);
-    // NVIC_DisableIRQ(UART2_IRQn);
-    // NVIC_ClearPendingIRQ(UART2_IRQn);
+    NVIC_DisableIRQ(UART2_IRQn);
+    NVIC_ClearPendingIRQ(UART2_IRQn);
 
     /*DeInit stim0*/
     STIM_Disable(STIM_0);
