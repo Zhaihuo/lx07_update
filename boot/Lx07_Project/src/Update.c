@@ -23,6 +23,7 @@
 #include "Z20k118M.h"
 #include "Z20K11xM_drv.h"
 #include "Z20K11xM_uart.h"
+#include "Z20K11xM_crc.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
@@ -46,8 +47,10 @@ typedef struct
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
-static uint32_t u32RegID00Val = 0;
-static bool     boJumpAppFlg  = false;
+static uint32_t u32RegID00Val     = 0;
+static bool     boJumpAppFlg      = false;
+static bool     boGetFwLenFlg     = false;
+static bool     boStrtCheckCrcFlg = false;
 
 Update_stInfo stUpdateInfo    = {0};
 Update_stAddr stUpdateAddrMsg = {0};
@@ -92,6 +95,22 @@ void Uart2_vReadInt(void)
                         stUpdateInfo.enCurSts        = UPDATE_STEP5_LAST_FRAME;
                     }
                 }
+            }
+            break;
+        case UPDATE_STEP6_GET_FWLEN:
+            stUpdateInfo.au8RecBuffer[stUpdateInfo.u8RecCount++] = u8Data;
+            if (stUpdateInfo.u8RecCount >= 4)
+            {
+                boGetFwLenFlg           = true;
+                stUpdateInfo.u8RecCount = 0;
+            }
+            break;
+        case UPDATE_STEP7_CHECK_CRC:
+            stUpdateInfo.au8RecBuffer[stUpdateInfo.u8RecCount++] = u8Data;
+            if (stUpdateInfo.u8RecCount >= 4)
+            {
+                boStrtCheckCrcFlg       = true;
+                stUpdateInfo.u8RecCount = 0;
             }
             break;
         default:
@@ -153,6 +172,8 @@ void Update_vHandle(void) // 10ms
     uint8_t  au8AppValid[16]  = {0};
     uint32_t u32BootValue     = *(volatile uint32_t *)DFLASH_BOOT_STATUS_ADDR; /*从地址读取数据*/
     uint32_t u32AppValue      = *(volatile uint32_t *)DFLASH_APP_STATUS_ADDR;  /*从地址读取数据*/
+
+    static uint32_t u32FwLen = 0;
 
     switch (stUpdateInfo.enCurSts)
     {
@@ -235,7 +256,7 @@ void Update_vHandle(void) // 10ms
                     }
                     else /*升级异常*/
                     {
-                        NVIC_SystemReset();
+                        stUpdateInfo.enCurSts = UPDATE_FAIL;
                     }
                 }
                 ELSE_NOTHING;
@@ -283,7 +304,7 @@ void Update_vHandle(void) // 10ms
                     }
                     else /*升级异常*/
                     {
-                        NVIC_SystemReset();
+                        stUpdateInfo.enCurSts = UPDATE_FAIL;
                     }
                 }
                 ELSE_NOTHING;
@@ -381,15 +402,62 @@ void Update_vHandle(void) // 10ms
                 // memset(&stUpdateInfo, 0, sizeof(stUpdateInfo));
                 stUpdateInfo.au8SendBuffer[0] = 0x99;
                 stUpdateInfo.au8SendBuffer[1] = 0x99;
-                Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机升级结束
+                Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机发送固件长度
             }
             else if (u8DelagCt >= 10) // 确保串口发送成功
             {
-                stUpdateInfo.enCurSts = UPDATE_SUCCESS;
+                stUpdateInfo.enCurSts = UPDATE_STEP6_GET_FWLEN;
             }
             ELSE_NOTHING;
 
             u8DelagCt++;
+            break;
+        }
+        case UPDATE_STEP6_GET_FWLEN:
+        {
+            if (boGetFwLenFlg)
+            {
+                u32FwLen = (stUpdateInfo.au8RecBuffer[0] << 24u) | (stUpdateInfo.au8RecBuffer[1] << 16u) | (stUpdateInfo.au8RecBuffer[2] << 8u) | (stUpdateInfo.au8RecBuffer[3]);
+                memset(stUpdateInfo.au8RecBuffer, 0, sizeof(stUpdateInfo.au8RecBuffer));
+
+                stUpdateInfo.au8SendBuffer[0] = 0xAA;
+                stUpdateInfo.au8SendBuffer[1] = 0xAA;
+                Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机发送校验数据
+
+                stUpdateInfo.enCurSts = UPDATE_STEP7_CHECK_CRC;
+            }
+            ELSE_NOTHING;
+            break;
+        }
+        case UPDATE_STEP7_CHECK_CRC:
+        {
+            uint32_t u32CrcVal     = 0;
+            uint32_t u32CrcCalcVal = 0;
+
+            if (boStrtCheckCrcFlg)
+            {
+                // u32CrcCalcVal = CRC_CalcCRC32bit((uint8_t *)(stUpdateAddrMsg.u32StartAddr), u32FwLen, ENABLE, 0xffffffffu);
+                u32CrcVal     = (stUpdateInfo.au8RecBuffer[0] << 24u) | (stUpdateInfo.au8RecBuffer[1] << 16u) | (stUpdateInfo.au8RecBuffer[2] << 8u) | (stUpdateInfo.au8RecBuffer[3]);
+
+                if (u32CrcCalcVal == u32CrcVal)
+                {
+                    stUpdateInfo.au8SendBuffer[0] = 0xBB;
+                    stUpdateInfo.au8SendBuffer[1] = 0xBB;
+                    Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机升级成功
+
+                    stUpdateInfo.enCurSts = UPDATE_SUCCESS;
+                }
+                else /*校验不通过*/
+                {
+                    stUpdateInfo.au8SendBuffer[0] = 0xCC;
+                    stUpdateInfo.au8SendBuffer[1] = 0xCC;
+                    Uart2_vSend(stUpdateInfo.au8SendBuffer, 2); // 通知上位机升级成功
+                    stUpdateInfo.enCurSts = UPDATE_FAIL;
+                }
+
+                // memset(stUpdateInfo.au8RecBuffer, 0, sizeof(stUpdateInfo.au8RecBuffer));
+            }
+            ELSE_NOTHING;
             break;
         }
         case UPDATE_SUCCESS:
@@ -412,7 +480,7 @@ void Update_vHandle(void) // 10ms
                 }
                 else /*升级异常*/
                 {
-                    NVIC_SystemReset();
+                    stUpdateInfo.enCurSts = UPDATE_FAIL;
                 }
 
                 if (FlashDrive_boEraseSector(DFLASH_APP_STATUS_ADDR) && FlashDrive_boProgramPhrase(DFLASH_APP_STATUS_ADDR, au8AppValid))
@@ -436,7 +504,7 @@ void Update_vHandle(void) // 10ms
                 }
                 else /*升级异常*/
                 {
-                    NVIC_SystemReset();
+                    stUpdateInfo.enCurSts = UPDATE_FAIL;
                 }
 
                 if (FlashDrive_boEraseSector(DFLASH_BOOT_STATUS_ADDR) && FlashDrive_boProgramPhrase(DFLASH_BOOT_STATUS_ADDR, au8BootValid))
@@ -445,7 +513,17 @@ void Update_vHandle(void) // 10ms
             break;
         }
         case UPDATE_FAIL:
+        {
+            static uint16_t u16TimeCt = 0;
+            u16TimeCt++;
+            if (u16TimeCt >= (500 / 10))
+            {
+                u16TimeCt = 0;
+                NVIC_SystemReset();
+            }
+            ELSE_NOTHING;
             break;
+        }
         default:
             break;
     }

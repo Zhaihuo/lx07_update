@@ -449,6 +449,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\StdDriver\Src\Z20K11xM_regfile.c</FilePath>
             </File>
+            <File>
+              <FileName>Z20K11xM_crc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\StdDriver\Src\Z20K11xM_crc.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -931,6 +936,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\StdDriver\Src\Z20K11xM_regfile.c</FilePath>
             </File>
+            <File>
+              <FileName>Z20K11xM_crc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\StdDriver\Src\Z20K11xM_crc.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1412,6 +1422,11 @@
               <FileName>Z20K11xM_regfile.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\StdDriver\Src\Z20K11xM_regfile.c</FilePath>
+            </File>
+            <File>
+              <FileName>Z20K11xM_crc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\StdDriver\Src\Z20K11xM_crc.c</FilePath>
             </File>
           </Files>
         </Group>

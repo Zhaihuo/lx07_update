@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, END, BooleanVar, filedialog
 import threading
 import time
+import os
 
 class UartUpperComputer:
     def __init__(self, root):
@@ -18,13 +19,11 @@ class UartUpperComputer:
         self.upgrade_running = False
         self.recv_buffer = b''
 
-        # SREC 完整记录
         self.srec_records = []
         self.fw_data_final = b''
         self.fw_addr_final = 0
         self.fw_size_final = 0
 
-        # 固定分包大小
         self.PKG_SIZE = 512
 
         # ===================== 串口配置 =====================
@@ -177,8 +176,6 @@ class UartUpperComputer:
         self.txt_receive.see(END)
 
     # -------------------------------------------------------------------------
-    # SREC 解析（保存所有记录，不合并）
-    # -------------------------------------------------------------------------
     def parse_srec_full(self, path):
         try:
             with open(path, 'r') as f:
@@ -208,9 +205,6 @@ class UartUpperComputer:
             self.log("❌ SREC 解析失败")
             return False
 
-    # -------------------------------------------------------------------------
-    # 从完整固件中提取当前分区的数据
-    # -------------------------------------------------------------------------
     def extract_partition_data(self, part_start, part_end):
         segments = []
         for addr, data in self.srec_records:
@@ -248,18 +242,16 @@ class UartUpperComputer:
             else:
                 self.label_status.config(text="状态：SREC 加载失败", foreground="red")
 
-    # -------------------------------------------------------------------------
     def wait_bytes(self, target, timeout=2):
         t0 = time.time()
         while time.time() - t0 < timeout:
             if target in self.recv_buffer:
-                self.recv_buffer = self.recv_buffer[self.recv_buffer.find(target)+len(target):]
+                pos = self.recv_buffer.find(target)
+                self.recv_buffer = self.recv_buffer[pos + len(target):]
                 return True
             time.sleep(0.01)
         return False
 
-    # -------------------------------------------------------------------------
-    # 升级流程：分区提取 + 每包固定512字节，不足填0xFF
     # -------------------------------------------------------------------------
     def start_upgrade_thread(self):
         if not self.file_path or not self.ser.is_open or not self.srec_records:
@@ -282,47 +274,47 @@ class UartUpperComputer:
             area = ""
             part_start = 0
             part_end = 0
+            bin_filename = ""
 
             if self.wait_bytes(b'\xA5\xA5', 2):
                 area = "BootA"
                 part_start = 0x4000
                 part_end = 0xDFFF
+                bin_filename = "Lx07_Boot_A.bin"
             elif self.wait_bytes(b'\xB5\xB5', 2):
                 area = "BootB"
                 part_start = 0xE000
                 part_end = 0x17FFF
+                bin_filename = "Lx07_Boot_B.bin"
             else:
                 self.log("❌ 未识别分区")
                 self.upgrade_fail()
                 return
 
-            # 提取当前分区有效数据
             addr, size, data = self.extract_partition_data(part_start, part_end)
             if size == 0:
                 self.log(f"❌ {area} 无有效数据")
                 self.upgrade_fail()
                 return
 
-            self.fw_data_final = data
-            self.fw_addr_final = addr
-            self.fw_size_final = size
+            if not os.path.exists(bin_filename):
+                self.log(f"❌ 未找到 {bin_filename}")
+                self.upgrade_fail()
+                return
 
-            # 界面显示
+            bin_file_size = os.path.getsize(bin_filename)
+            self.log(f"✅ 读取 {bin_filename} 大小：{bin_file_size} 字节")
+
             self.entry_area.config(state="normal")
             self.entry_addr.config(state="normal")
             self.entry_size.config(state="normal")
             self.entry_area.delete(0,END); self.entry_area.insert(0, area)
             self.entry_addr.delete(0,END); self.entry_addr.insert(0, f"0x{addr:X}")
-            self.entry_size.delete(0,END); self.entry_size.insert(0, f"{size} 字节")
+            self.entry_size.delete(0,END); self.entry_size.insert(0, f"{bin_file_size} 字节")
             self.entry_area.config(state="readonly")
             self.entry_addr.config(state="readonly")
             self.entry_size.config(state="readonly")
 
-            self.log(f"✅ 当前分区: {area}")
-            self.log(f"📍 数据起始: 0x{addr:X}")
-            self.log(f"📏 有效大小: {size} 字节")
-
-            # 擦除流程
             self.label_status.config(text="状态：擦除中")
             self.ser.write(b'\x12\x34')
             if not self.wait_bytes(b'\xA5\xB5', 3):
@@ -337,21 +329,22 @@ class UartUpperComputer:
                 self.upgrade_fail()
                 return
 
-            # 分包：每包固定512，不足末尾填 0xFF
             pkg_size = self.PKG_SIZE
-            total = (len(data) + pkg_size - 1) // pkg_size
-            self.log(f"📦 总包数: {total} (每包固定512字节，不足填0xFF)")
+            send_length = len(data)
+            total = (send_length + pkg_size - 1) // pkg_size
+            self.log(f"📦 总包数: {total}")
 
             for i in range(total):
                 if not self.upgrade_running:
                     return
-                # 截取当前包原始数据
-                pkg_raw = data[i*pkg_size : (i+1)*pkg_size]
-                # 不足512，后面补 0xFF
+                current_start = i * pkg_size
+                current_end = current_start + pkg_size
+                if current_start >= send_length:
+                    break
+
+                pkg_raw = data[current_start:current_end]
                 if len(pkg_raw) < pkg_size:
-                    fill_cnt = pkg_size - len(pkg_raw)
-                    pkg = pkg_raw + b'\xFF' * fill_cnt
-                    self.log(f"ℹ️ 第{i+1}包末尾填充 {fill_cnt} 个0xFF")
+                    pkg = pkg_raw + b'\xFF' * (pkg_size - len(pkg_raw))
                 else:
                     pkg = pkg_raw
 
@@ -365,13 +358,51 @@ class UartUpperComputer:
                 self.log(f"✅ 第{i+1}包成功")
                 self.progress_var.set((i+1)/total * 100)
 
-            # 结束帧
+            # 发送结束帧
+            self.log("📤 发送结束帧: 66 77 88 99")
             self.ser.write(b'\x66\x77\x88\x99')
-            if self.wait_bytes(b'\x99\x99', 2):
-                self.log("🎉 升级成功！")
-                self.label_status.config(text="状态：升级成功 ✅", foreground="green")
+
+            # 等待 99 99 → 发送大小
+            self.log("⏳ 等待 MCU 请求大小 99 99...")
+            if not self.wait_bytes(b'\x99\x99', 5):
+                self.log("❌ 未收到 99 99")
+                self.upgrade_fail()
+                return
+            
+            time.sleep(0.2)
+
+            size_bytes = bin_file_size.to_bytes(4, 'big', signed=False)
+            self.ser.write(size_bytes)
+            self.log(f"📤 已发送固件大小: {size_bytes.hex(' ')}")
+
+            # 等待 AA AA → 发送校验
+            self.log("⏳ 等待 MCU 请求校验 AA AA...")
+            if not self.wait_bytes(b'\xAA\xAA', 5):
+                self.log("❌ 未收到 AA AA")
+                self.upgrade_fail()
+                return
+            if len(data) >=4:
+                check_data = data[-4:]
             else:
-                self.log("❌ 未收到完成应答")
+                check_data = data + b'\xFF'*(4-len(data))
+            self.ser.write(check_data)
+            self.log(f"📤 已发送校验数据: {check_data.hex(' ')}")
+
+            # ===================== 最终判断：等待2秒，BB成功 / CC校验失败 =====================
+            self.log("⏳ 等待结果（2秒超时）...")
+            t_wait = time.time()
+            while time.time() - t_wait < 2.0:
+                if self.wait_bytes(b'\xBB\xBB', 0.1):
+                    self.log("🎉 升级成功！")
+                    self.label_status.config(text="状态：升级成功 ✅", foreground="green")
+                    break
+                if self.wait_bytes(b'\xCC\xCC', 0.1):
+                    self.log("❌ 校验不通过！")
+                    self.upgrade_fail()
+                    return
+                time.sleep(0.01)
+            else:
+                self.log("❌ 等待结果超时")
                 self.upgrade_fail()
                 return
 
