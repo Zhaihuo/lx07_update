@@ -172,6 +172,25 @@ class UartUpperComputer:
         self.txt_receive.see(END)
 
     # -------------------------------------------------------------------------
+    # 校验：BIN 最大地址必须 = 0x00017FFF
+    # -------------------------------------------------------------------------
+    def check_boot_bin(self, bin_path):
+        try:
+            with open(bin_path, 'rb') as f:
+                data = f.read()
+            max_addr = len(data) - 1
+            self.log(f"📊 BIN 最大地址: 0x{max_addr:08X}")
+            if max_addr == 0x00017FFF:
+                self.log("✅ BIN 校验通过")
+                return True
+            else:
+                self.log("❌ BIN 错误！不是合法 Boot 文件")
+                return False
+        except:
+            self.log("❌ BIN 读取失败")
+            return False
+
+    # -------------------------------------------------------------------------
     def select_upgrade_file(self):
         path = filedialog.askopenfilename(title="选择BIN", filetypes=[("BIN文件", "*.bin")])
         if path:
@@ -196,7 +215,6 @@ class UartUpperComputer:
         t0 = time.time()
         while time.time() - t0 < timeout:
             if target in self.recv_buffer:
-                # 找到目标，把它从缓冲区移除（只移除找到的部分）
                 idx = self.recv_buffer.find(target)
                 self.recv_buffer = self.recv_buffer[idx + len(target):]
                 return True
@@ -204,14 +222,17 @@ class UartUpperComputer:
         return False
 
     # -------------------------------------------------------------------------
-    # 核心：自动识别A/B区
+    # 核心：自动识别A/B区 + BIN地址校验
     # -------------------------------------------------------------------------
     def auto_process(self):
         try:
             self.log("\n=============== 自动升级流程 ===============")
-            # ========== 关键：每次升级开始前，强制清空接收缓冲区 ==========
             self.recv_buffer = b''
-            # ==========================================================
+
+            # 先校验 BIN
+            if not self.check_boot_bin(self.file_path):
+                self.upgrade_fail()
+                return
 
             self.label_status.config(text="状态：发送进入Boot指令", foreground="blue")
             self.ser.write(b'\x01\x01\x01\x01')
@@ -270,8 +291,8 @@ class UartUpperComputer:
 
             # 5. 读取BIN并截取大小
             with open(self.file_path, 'rb') as f:
-                f.seek(self.flash_addr)       # 跳转到 BIN 内对应地址
-                burn_data = f.read(self.flash_size)  # 固定读取 0xA000
+                f.seek(self.flash_addr)
+                burn_data = f.read(self.flash_size)
             self.log(f"📄 截取烧录数据：{len(burn_data)} 字节")
 
             # 6. 512分包发送

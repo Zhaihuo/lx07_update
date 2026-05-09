@@ -172,6 +172,24 @@ class UartUpperComputer:
         self.txt_receive.see(END)
 
     # -------------------------------------------------------------------------
+    # 校验BIN文件整体最大地址 = 0x3EFFF
+    # -------------------------------------------------------------------------
+    def check_bin_max_addr_only(self, bin_path):
+        try:
+            with open(bin_path, 'rb') as f:
+                size = len(f.read())
+            max_addr = size - 1
+            self.log(f"📊 BIN最大地址: 0x{max_addr:08X}")
+            if max_addr == 0x3EFFF:
+                self.log("✅ BIN地址校验通过")
+                return True
+            else:
+                self.log("❌ BIN地址错误，不是合法固件！")
+                return False
+        except Exception as e:
+            self.log(f"❌ 读取BIN失败: {e}")
+            return False
+
     def select_upgrade_file(self):
         path = filedialog.askopenfilename(title="选择BIN", filetypes=[("BIN文件", "*.bin")])
         if path:
@@ -196,22 +214,21 @@ class UartUpperComputer:
         t0 = time.time()
         while time.time() - t0 < timeout:
             if target in self.recv_buffer:
-                # 找到目标，把它从缓冲区移除（只移除找到的部分）
                 idx = self.recv_buffer.find(target)
                 self.recv_buffer = self.recv_buffer[idx + len(target):]
                 return True
             time.sleep(0.01)
         return False
 
-    # -------------------------------------------------------------------------
-    # 核心：自动识别A/B区
-    # -------------------------------------------------------------------------
     def auto_process(self):
         try:
             self.log("\n=============== 自动升级流程 ===============")
-            # ========== 关键：每次升级开始前，强制清空接收缓冲区 ==========
             self.recv_buffer = b''
-            # ==========================================================
+
+            # 先校验BIN最大地址
+            if not self.check_bin_max_addr_only(self.file_path):
+                self.upgrade_fail()
+                return
 
             self.label_status.config(text="状态：发送进入App指令", foreground="blue")
             self.ser.write(b'\x02\x02\x02\x02')
@@ -270,11 +287,11 @@ class UartUpperComputer:
 
             # 5. 读取BIN并截取大小
             with open(self.file_path, 'rb') as f:
-                f.seek(self.flash_addr)       # 跳转到 BIN 内对应地址
-                burn_data = f.read(self.flash_size)  # 固定读取 0x13800
+                f.seek(self.flash_addr)
+                burn_data = f.read(self.flash_size)
             self.log(f"📄 截取烧录数据：{len(burn_data)} 字节")
 
-            # 6. 512分包发送
+            # 6. 512分包发送 【还原原版简单打印】
             pkg_size = 512
             pkts = [burn_data[i:i+pkg_size] for i in range(0, len(burn_data), pkg_size)]
             total = len(pkts)
