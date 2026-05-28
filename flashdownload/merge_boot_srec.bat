@@ -7,8 +7,8 @@ echo ==============================================
 :: --------------------------
 :: 请在这里修改你的文件名
 :: --------------------------
-set FILE1=Lx07_Boot_A_crc32.srec
-set FILE2=Lx07_Boot_B_crc32.srec
+set FILE1=Lx07_Boot_A_crc32_updated.srec
+set FILE2=Lx07_Boot_B_crc32_updated.srec
 set OUTPUT=boot.srec
 :: --------------------------
 
@@ -36,4 +36,4 @@ if %errorlevel% equ 0 (
 )
 
 echo.
-pause
+@REM pause

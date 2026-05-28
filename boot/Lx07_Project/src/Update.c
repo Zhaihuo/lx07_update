@@ -436,7 +436,7 @@ void Update_vHandle(void) // 10ms
 
             if (boStrtCheckCrcFlg)
             {
-                // u32CrcCalcVal = CRC_CalcCRC32bit((uint8_t *)(stUpdateAddrMsg.u32StartAddr), u32FwLen, ENABLE, 0xffffffffu);
+                u32CrcCalcVal = CRC_CalcCRC32bit((uint8_t *)(stUpdateAddrMsg.u32StartAddr), u32FwLen, ENABLE, 0xffffffffu);
                 u32CrcVal     = (stUpdateInfo.au8RecBuffer[0] << 24u) | (stUpdateInfo.au8RecBuffer[1] << 16u) | (stUpdateInfo.au8RecBuffer[2] << 8u) | (stUpdateInfo.au8RecBuffer[3]);
 
                 if (u32CrcCalcVal == u32CrcVal)

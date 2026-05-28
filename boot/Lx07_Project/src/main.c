@@ -26,6 +26,7 @@
 #include "Config.h"
 #include "FlashDriver.h"
 #include "Update.h"
+#include "Z20K11xM_crc.h"
 /*****************************************************************************
  * Local macros
  *****************************************************************************/
@@ -33,7 +34,7 @@
 /*****************************************************************************
  * Local data types
  *****************************************************************************/
-
+#define POL_VALUE (0x04C11DB7u)
 /*****************************************************************************
  * Variant declarations
  *****************************************************************************/
@@ -45,6 +46,25 @@
 /*****************************************************************************
  * function definitions
  *****************************************************************************/
+void Crc_vInit(void)
+{
+    const CRC_Config_t configStruct = {
+        .seedValue = 0x00000000U, /* Seed values */
+        .poly      = POL_VALUE,   /* Polynomial */
+        //.compRead  = CRC_COMPREAD_NO_XOR,   /* CRC XOR read type */
+        .complementRead = CRC_COMPREAD_INVERT_COMP,
+        .dataMode       = CRC_MODE_32BIT,        /* CRC protocol mode type */
+        .readType       = CRC_READ_BIT_Y_BYTE_Y, /* CRC read transpose type */
+        .writeType      = CRC_WRITE_BIT_Y_BYTE_N /* CRC write transpose type */
+    };
+
+    /* Enable clock for CRC */
+    SYSCTRL_EnableModule(SYSCTRL_CRC);
+
+    /* Initialize CRC */
+    CRC_Init(&configStruct);
+}
+
 static void Gpio_vInit(void)
 {
     CLK_ModuleSrc(CLK_PORTA, CLK_SRC_OSC40M);
@@ -80,6 +100,7 @@ int main(void)
     System_vInit();
     __enable_irq();
 
+    Crc_vInit();
     Update_vInit();
     Uart2_vInit();
     Task_vInit();
