@@ -2,9 +2,9 @@
 REM 批量处理工具脚本
 REM 用途：将HEX文件转换为BIN文件，然后生成带CRC32校验的SREC文件
 
-copy "..\boot\Lx07_Project\KeilProject\Objects\Lx07_Boot_A.hex" "./Lx07_Boot_A.hex"
+copy "..\..\..\boot\Lx07_Project\KeilProject\Objects\Lx07_Boot_A.hex" "./Lx07_Boot_A.hex"
 
-set HEXVIEW_PATH="Hexview\hexview.exe"
+set HEXVIEW_PATH="..\..\Hexview\hexview.exe"
 set INPUT_HEX=./Lx07_Boot_A.hex
 set OUTPUT_BIN=./Lx07_Boot_A.bin
 set OUTPUT_SREC=./Lx07_Boot_A_crc32.srec
