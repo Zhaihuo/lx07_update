@@ -1,0 +1,1 @@
+preboot_boot_app_flashburn.bat用于首次烧录preboot、boot、app
